@@ -1,11 +1,22 @@
 #include "env.h"
 
+#include <stdlib.h>
+
 #define BLOCK_SIZE 100
-#define MAGENTA 0XFFFF00FF // 0xAARRGGBB
+
+#define RED 0XFF0000FF
+#define MAGENTA 0XFFFF00FF
 #define WHITE 0XFFFFFFFF
 
-void app_init(void) {
-  
+typedef struct {
+    uint32_t color;
+} AppState;
+
+AppState *state = NULL;
+
+void app_init() {
+    state = malloc(sizeof(AppState));
+    state->color = MAGENTA;
 }
 
 void app_update(Env *env) {
@@ -24,4 +35,13 @@ void app_update(Env *env) {
         ((uint32_t *)env->buffer)[y * env->window_width + x] = color;
       }
     }
+}
+
+// For hot reloading
+void* app_pre_reload(void) {
+    return state;
+}
+
+void app_post_reload(void* old_state) {
+    state = old_state;
 }

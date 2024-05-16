@@ -8,10 +8,12 @@
 
 #include "everything.h"
 
+#define F5_KEYCODE 96
+
 App app = {0};
 void *appModuleHandle = NULL;
 
-void loadAppModule(void) {
+void reloadAppModule(void) {
     if (!appModuleHandle) dlclose(appModuleHandle);
 
     appModuleHandle = dlopen("./everything.so", RTLD_NOW);
@@ -21,41 +23,26 @@ void loadAppModule(void) {
     }
 
     app.app_init = dlsym(appModuleHandle, "app_init");
-    if (!app.app_init) {
-        fprintf(stderr, "ERROR: Error occurred during module symbol: %s\n", dlerror());
-        exit(EXIT_FAILURE);
-    }
-
     app.app_update = dlsym(appModuleHandle, "app_update");
-    if (!app.app_update) {
-        fprintf(stderr, "ERROR: Error occurred during module symbol: %s\n", dlerror());
+    app.app_pre_reload = dlsym(appModuleHandle, "app_pre_reload");
+    app.app_post_reload = dlsym(appModuleHandle, "app_post_reload");
+
+    char* err = dlerror();
+    if (err != NULL) {
+        fprintf(stderr, "ERROR: Error occurred during module symbol: %s\n", err);
         exit(EXIT_FAILURE);
     }
 }
-
-
-@interface  AppWindow:  NSWindow
-@end
-
-@implementation  AppWindow
-- (BOOL)acceptsFirstResponder {
-    return YES;
-}
-
-- (void)keyDown:(NSEvent *)event {
-    NSString *characters = [event characters];
-    NSLog(@"Key pressed: %@", characters);
-}
-@end
 
 @interface AppDelegate : NSObject <NSApplicationDelegate, NSWindowDelegate>
 
 @property uint8_t *buffer;
 @property size_t bufferSize;
-@property(nonatomic, strong) AppWindow *window;
 @property double lastFrameTime;
+@property(nonatomic, strong) NSWindow *window;
 
 - (void)updateFrame;
+- (void)handleKeyDown:(NSEvent*)event;
 @end
 
 @implementation AppDelegate
@@ -64,7 +51,7 @@ void loadAppModule(void) {
                           NSWindowStyleMaskResizable | NSWindowStyleMaskFullSizeContentView
                           | NSWindowStyleMaskMiniaturizable;
 
-    self.window = [[AppWindow alloc]
+    self.window = [[NSWindow alloc]
             initWithContentRect:NSMakeRect(0, 0, INIT_WIDTH, INIT_HEIGHT)
                       styleMask:windowStyleMask
                         backing:NSBackingStoreBuffered
@@ -72,8 +59,9 @@ void loadAppModule(void) {
 
     [self.window setTitle:@WINDOW_NAME];
     [self.window setCollectionBehavior:NSWindowCollectionBehaviorFullScreenPrimary];
+    [self.window setDelegate:self];
     [self.window makeKeyAndOrderFront:nil];
-    [self.window makeFirstResponder:self.window];
+    [NSApp activateIgnoringOtherApps:YES];
 
     self.lastFrameTime = platform_get_time();
     self.buffer = NULL;
@@ -86,13 +74,10 @@ void loadAppModule(void) {
                                    userInfo:nil
                                     repeats:YES];
 
-    [NSEvent addGlobalMonitorForEventsMatchingMask:NSKeyDownMask handler:^(NSEvent *event){
-        [self.window keyDown:event];
+    [NSEvent addLocalMonitorForEventsMatchingMask:NSEventMaskKeyDown handler:^NSEvent*(NSEvent *event){
+        [self handleKeyDown:event];
+        return event;
     }];
-}
-
-- (void)applicationDidBecomeActive:(NSNotification*)aNotification {
-    NSLog(@"Is key window: %d", [self.window isKeyWindow]);
 }
 
 - (NSSize)windowWillResize:(NSWindow *)sender toSize:(NSSize)frameSize {
@@ -161,17 +146,26 @@ void loadAppModule(void) {
     self.lastFrameTime = currentFrameTime;
 }
 
+- (void)handleKeyDown:(NSEvent*)event {
+    if (event.keyCode == F5_KEYCODE) {
+        NSLog(@"Hot reloading...");
+
+        void* oldState = app.app_pre_reload();
+        reloadAppModule();
+        app.app_post_reload(oldState);
+    }
+}
+
 @end
 
-int main(int argc, const char *argv[]) {
-    (void) argc;
-    (void) argv;
-
-    loadAppModule();
-
+int main(void) {
     @autoreleasepool {
+        NSLog(@"Command line args: %@", [[NSProcessInfo processInfo] arguments]);
+        reloadAppModule();
+
         NSApplication *application = [NSApplication sharedApplication];
         AppDelegate *appDelegate = [[AppDelegate alloc] init];
+        [NSApp setActivationPolicy:NSApplicationActivationPolicyRegular];
 
         [application setDelegate:appDelegate];
         [application run];
