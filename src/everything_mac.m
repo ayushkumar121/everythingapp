@@ -6,15 +6,16 @@
 #include <stdlib.h>
 #include <dlfcn.h>
 
+#include "config.h"
 #include "platform.h"
 
-AppModule app = {0};
+AppModule module = {0};
 
 @interface AppDelegate : NSObject <NSApplicationDelegate, NSWindowDelegate>
 
 // Input related
 @property bool inputUsed;
-@property AppKeyCode keyCode;
+@property size_t keyCode;
 @property bool keyDown;
 @property bool mouseLeftDown;
 @property bool mouseRightDown;
@@ -54,7 +55,7 @@ AppModule app = {0};
     self.lastFrameTime = platform_get_time();
     self.buffer = NULL;
 
-    app.app_init();
+    module.app_init();
 
     [NSTimer scheduledTimerWithTimeInterval:1.0 / 60.0
                                      target:self
@@ -113,7 +114,7 @@ AppModule app = {0};
                     .mouse_right_down = self.mouseRightDown,
                     .mouse_moved = self.mouseMouseMoved,
             };
-            app.app_update(&env);
+            module.app_update(&env);
         }
         self.inputUsed = true;
 

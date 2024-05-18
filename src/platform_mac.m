@@ -6,10 +6,10 @@
 #include <dlfcn.h>
 
 void platform_load_module(AppModule *module, char* file_path) {
-    if (module->handle != NULL) dlclose(mdoule->handle);
+    if (module->handle != NULL) dlclose(module->handle);
 
-    app->handle = dlopen(file_path, RTLD_NOW);
-    if (!app->handle) {
+    module->handle = dlopen(file_path, RTLD_NOW);
+    if (!module->handle) {
         fprintf(stderr, "ERROR: Error occurred during module loading: %s\n", dlerror());
         exit(EXIT_FAILURE);
     }
@@ -24,6 +24,8 @@ void platform_load_module(AppModule *module, char* file_path) {
         fprintf(stderr, "ERROR: Error occurred during module symbol: %s\n", err);
         exit(EXIT_FAILURE);
     }
+
+    fprintf(stderr, "INFO: Loaded app module\n");
 }
 
 double platform_get_time(void) {
