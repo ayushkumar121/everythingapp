@@ -36,13 +36,25 @@ void reloadAppModule(void) {
 
 @interface AppDelegate : NSObject <NSApplicationDelegate, NSWindowDelegate>
 
+// Input related
+@property bool inputUsed;
+@property AppKeyCode keyCode;
+@property bool keyDown;
+@property bool mouseLeftDown;
+@property bool mouseRightDown;
+@property bool mouseMouseMoved;
+
+// Image related
 @property uint8_t *buffer;
 @property size_t bufferSize;
 @property double lastFrameTime;
+
 @property(nonatomic, strong) NSWindow *window;
+@property(nonatomic, strong) NSImage *image;
+@property(nonatomic, strong) NSBitmapImageRep *imageRep;
 
 - (void)updateFrame;
-- (void)handleKeyDown:(NSEvent*)event;
+- (void)handleInput:(NSEvent*)event;
 @end
 
 @implementation AppDelegate
@@ -74,8 +86,9 @@ void reloadAppModule(void) {
                                    userInfo:nil
                                     repeats:YES];
 
-    [NSEvent addLocalMonitorForEventsMatchingMask:NSEventMaskKeyDown handler:^NSEvent*(NSEvent *event){
-        [self handleKeyDown:event];
+    int inputEvents = NSEventMaskKeyDown|NSEventMaskMouseMoved|NSEventTypeLeftMouseDown|NSEventTypeRightMouseDown;
+    [NSEvent addLocalMonitorForEventsMatchingMask:inputEvents handler:^NSEvent*(NSEvent *event){
+        [self handleInput:event];
         return event;
     }];
 }
@@ -87,73 +100,107 @@ void reloadAppModule(void) {
 }
 
 - (void)windowWillClose:(NSNotification *)notification {
+    [self.window release];
     free(self.buffer);
     exit(EXIT_SUCCESS);
 }
 
 - (void)updateFrame {
-    double currentFrameTime = platform_get_time();
-    double dt = (currentFrameTime - self.lastFrameTime) / 1000.0;
+        double currentFrameTime = platform_get_time();
+        double dt = (currentFrameTime - self.lastFrameTime) / 1000.0;
 
-    // Obtain the dimensions of the window's content view
-    int width = (int) self.window.contentView.bounds.size.width;
-    int height = (int) self.window.contentView.bounds.size.height;
+        // Obtain the dimensions of the window's content view
+        int width = (int) self.window.contentView.bounds.size.width;
+        int height = (int) self.window.contentView.bounds.size.height;
 
-    // Allocate a new buffer or reuse the existing one
+        // Allocate a new buffer or reuse the existing one
 
-    size_t newBufferSize = width * height * sizeof(uint32_t);
-    if (!self.buffer || (self.buffer && self.bufferSize != newBufferSize)) {
-        if (self.buffer)
-            free(self.buffer);
+        size_t newBufferSize = width * height * sizeof(uint32_t);
+        if (!self.buffer || (self.buffer && self.bufferSize != newBufferSize)) {
+            if (self.buffer)
+                free(self.buffer);
 
-        self.buffer = malloc(newBufferSize);
-        self.bufferSize = newBufferSize;
-    }
+            self.buffer = malloc(newBufferSize);
+            self.bufferSize = newBufferSize;
+        }
 
-    // Updating the actual app
-    {
-        Env env = {
-                .buffer = self.buffer,
-                .delta_time = dt,
-                .window_width = width,
-                .window_height = height,
-        };
-        app.app_update(&env);
-    }
+        // Updating the actual app
+        {
+            Env env = {
+                    .buffer = self.buffer,
+                    .delta_time = dt,
+                    .window_width = width,
+                    .window_height = height,
+                    .key_code = self.keyCode,
+                    .key_down = self.keyDown,
+                    .mouse_left_down = self.mouseLeftDown,
+                    .mouse_right_down = self.mouseRightDown,
+                    .mouse_moved = self.mouseMouseMoved,
+            };
+            app.app_update(&env);
 
-    // Create a new NSBitmapImageRep with the updated buffer
-    uint32_t pitch = width * sizeof(uint32_t);
-    uint8_t *buffer = self.buffer;
+           //NSLog(@"KeyDown = %d", env.key_down);
+        }
+        self.inputUsed = true;
 
-    NSBitmapImageRep *rep =
-            [[NSBitmapImageRep alloc] initWithBitmapDataPlanes:&buffer
-                                                    pixelsWide:width
-                                                    pixelsHigh:height
-                                                 bitsPerSample:8
-                                               samplesPerPixel:4
-                                                      hasAlpha:YES
-                                                      isPlanar:NO
-                                                colorSpaceName:NSDeviceRGBColorSpace
-                                                   bytesPerRow:pitch
-                                                  bitsPerPixel:32];
+        // Create a new NSBitmapImageRep with the updated buffer
+        uint32_t pitch = width * sizeof(uint32_t);
+        uint8_t *buffer = self.buffer;
 
-    // Update the NSImage with the new representation
-    NSImage *image = [[NSImage alloc] initWithSize:NSMakeSize(width, height)];
-    [image addRepresentation:rep];
+        self.imageRep =
+                [[NSBitmapImageRep alloc] initWithBitmapDataPlanes:&buffer
+                                                        pixelsWide:width
+                                                        pixelsHigh:height
+                                                     bitsPerSample:8
+                                                   samplesPerPixel:4
+                                                          hasAlpha:YES
+                                                          isPlanar:NO
+                                                    colorSpaceName:NSDeviceRGBColorSpace
+                                                       bytesPerRow:pitch
+                                                      bitsPerPixel:32];
 
-    // Update the layer contents with the new image
-    self.window.contentView.layer.contents = image;
-    self.lastFrameTime = currentFrameTime;
+        // Releasing old images
+        [self.image release];
+        [self.imageRep release];
+
+        // Update the NSImage with the new representation
+        self.image = [[NSImage alloc] initWithSize:NSMakeSize(width, height)];
+        [self.image addRepresentation:self.imageRep];
+
+        // Update the layer contents with the new image
+        self.window.contentView.layer.contents = self.image;
+        self.lastFrameTime = currentFrameTime;
+
+        [self resetInput];
 }
 
-- (void)handleKeyDown:(NSEvent*)event {
-    if (event.keyCode == F5_KEYCODE) {
-        NSLog(@"Hot reloading...");
+- (void)handleInput:(NSEvent*)event {
+    self.keyDown = event.type == NSEventTypeKeyDown;
+    self.mouseLeftDown = event.type & NSEventTypeLeftMouseDown;
+    self.mouseRightDown = event.type & NSEventTypeRightMouseDown;
+    self.mouseMouseMoved = event.type & NSEventTypeMouseMoved;
+    self.inputUsed = false;
 
-        void* oldState = app.app_pre_reload();
-        reloadAppModule();
-        app.app_post_reload(oldState);
+    if(self.keyDown) {
+        if (event.keyCode == F5_KEYCODE) {
+            NSLog(@"Hot reloading...");
+
+            void* oldState = app.app_pre_reload();
+            reloadAppModule();
+            app.app_post_reload(oldState);
+        }
+
+        self.keyCode = event.keyCode;
     }
+}
+
+- (void)resetInput {
+    if(!self.inputUsed) return;
+
+    self.keyDown = false;
+    self.mouseLeftDown = false;
+    self.mouseRightDown = false;
+    self.mouseMouseMoved = false;
 }
 
 @end
@@ -170,14 +217,16 @@ int main(void) {
         [application setDelegate:appDelegate];
         [application run];
     }
-    return 0;
+
+    return EXIT_SUCCESS;
 }
 
 /*  Platform functions */
 double platform_get_time(void) {
-    NSDate *now = [NSDate date];
-    NSTimeInterval timeInterval = [now timeIntervalSince1970];
-    double currentTimeInMilliseconds = (timeInterval * 1000.0);
-
-    return currentTimeInMilliseconds;
+    @autoreleasepool {
+        NSDate *now = [NSDate date];
+        NSTimeInterval timeInterval = [now timeIntervalSince1970];
+        double currentTimeInMilliseconds = (timeInterval * 1000.0);
+        return currentTimeInMilliseconds;
+    }
 }
