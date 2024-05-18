@@ -31,25 +31,23 @@ endif
 
 .DEFAULT_GOAL := $(DEFAULT_TARGET)
 
-all: $(BUILD_DIR)/everything_mac $(BUILD_DIR)/everything_wayland
-hot_reload: $(BUILD_DIR)/$(MODULE_NAME)
+all: $(BUILD_DIR)/everything_wayland $(BUILD_DIR)/everything_mac $(BUILD_DIR)/everything_win32
+hotreload: $(BUILD_DIR)/$(MODULE_NAME)
 
 $(BUILD_DIR)/everything_wayland: $(BUILD_DIR)/$(MODULE_NAME) $(LINUX_SRC_FILES)
-	@echo "INFO: Building for linux"
 	$(CC) -o $(BUILD_DIR)/everything_wayland $(LINUX_SRC_FILES) $(CFLAGS) $(LD_FLAGS_LINUX)
 
 $(BUILD_DIR)/everything_mac: $(BUILD_DIR)/$(MODULE_NAME) $(MAC_SRC_FILES)
-	@echo "INFO: Building for mac"
 	$(CC) -o $(BUILD_DIR)/everything_mac $(SRC_DIR) $(MAC_SRC_FILES) $(CFLAGS) $(LD_FLAGS_MAC)
 
 $(BUILD_DIR)/everything_win32: $(BUILD_DIR)/$(MODULE_NAME) $(WIN_SRC_FILES)
-	@echo "INFO: Building for win32 is not supported yet"
+	@echo "ERROR: Building for win32 is not supported yet"
 
 $(BUILD_DIR)/$(MODULE_NAME): $(SRC_DIR)/everything.c $(MODULE_SRC_FILES)
 	$(CC) -shared -fPIC -o $(BUILD_DIR)/$(MODULE_NAME) $(MODULE_SRC_FILES) $(CFLAGS) $(LD_MODULE_FLAGS)
 
 unknown_target:
-	@echo "Unknown platform"
+	@echo "ERROR: Unknown platform"
 
 clean:
 	rm -rf build
