@@ -6,33 +6,9 @@
 #include <stdlib.h>
 #include <dlfcn.h>
 
-#include "everything.h"
+#include "platform.h"
 
-#define F5_KEYCODE 96
-
-App app = {0};
-void *appModuleHandle = NULL;
-
-void reloadAppModule(void) {
-    if (!appModuleHandle) dlclose(appModuleHandle);
-
-    appModuleHandle = dlopen("./everything.so", RTLD_NOW);
-    if (!appModuleHandle) {
-        fprintf(stderr, "ERROR: Error occurred during module loading: %s\n", dlerror());
-        exit(EXIT_FAILURE);
-    }
-
-    app.app_init = dlsym(appModuleHandle, "app_init");
-    app.app_update = dlsym(appModuleHandle, "app_update");
-    app.app_pre_reload = dlsym(appModuleHandle, "app_pre_reload");
-    app.app_post_reload = dlsym(appModuleHandle, "app_post_reload");
-
-    char* err = dlerror();
-    if (err != NULL) {
-        fprintf(stderr, "ERROR: Error occurred during module symbol: %s\n", err);
-        exit(EXIT_FAILURE);
-    }
-}
+AppModule app = {0};
 
 @interface AppDelegate : NSObject <NSApplicationDelegate, NSWindowDelegate>
 
@@ -182,12 +158,12 @@ void reloadAppModule(void) {
     self.inputUsed = false;
 
     if(self.keyDown) {
-        if (event.keyCode == F5_KEYCODE) {
+        if (event.keyCode == 96) {
             NSLog(@"Hot reloading...");
 
-            void* oldState = app.app_pre_reload();
-            reloadAppModule();
-            app.app_post_reload(oldState);
+            void* oldState = module.app_pre_reload();
+            platform_load_module(&module, "./everything.dylib");
+            module.app_post_reload(oldState);
         }
 
         self.keyCode = event.keyCode;
@@ -206,10 +182,9 @@ void reloadAppModule(void) {
 @end
 
 int main(void) {
+    platform_load_module(&module, "./everything.dylib");
+    
     @autoreleasepool {
-        NSLog(@"Command line args: %@", [[NSProcessInfo processInfo] arguments]);
-        reloadAppModule();
-
         NSApplication *application = [NSApplication sharedApplication];
         AppDelegate *appDelegate = [[AppDelegate alloc] init];
         [NSApp setActivationPolicy:NSApplicationActivationPolicyRegular];
@@ -221,12 +196,3 @@ int main(void) {
     return EXIT_SUCCESS;
 }
 
-/*  Platform functions */
-double platform_get_time(void) {
-    @autoreleasepool {
-        NSDate *now = [NSDate date];
-        NSTimeInterval timeInterval = [now timeIntervalSince1970];
-        double currentTimeInMilliseconds = (timeInterval * 1000.0);
-        return currentTimeInMilliseconds;
-    }
-}

@@ -2,7 +2,7 @@
 #include "drawing.h"
 
 #include <stdlib.h>
-#include <strings.h>
+#include <string.h>
 #include <stdio.h>
 
 typedef struct {
@@ -11,7 +11,7 @@ typedef struct {
 
 AppState *state = NULL;
 
-void app_init() {
+void app_init(void) {
     state = malloc(sizeof(AppState));
     state->color = MAGENTA;
 }
