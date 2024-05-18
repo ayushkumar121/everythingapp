@@ -114,8 +114,6 @@ AppModule app = {0};
                     .mouse_moved = self.mouseMouseMoved,
             };
             app.app_update(&env);
-
-           //NSLog(@"KeyDown = %d", env.key_down);
         }
         self.inputUsed = true;
 
@@ -159,8 +157,6 @@ AppModule app = {0};
 
     if(self.keyDown) {
         if (event.keyCode == 96) {
-            NSLog(@"Hot reloading...");
-
             void* oldState = module.app_pre_reload();
             platform_load_module(&module, "./everything.dylib");
             module.app_post_reload(oldState);
