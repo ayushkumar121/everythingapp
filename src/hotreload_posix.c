@@ -1,10 +1,10 @@
-#include "platform.h"
+#include "hotreload.h"
 
 #include <stdio.h>
 #include <stdlib.h>
 #include <dlfcn.h>
 
-void platform_load_module(AppModule *module, char* file_path) {
+void load_module(AppModule *module, char* file_path) {
     if (module->handle != NULL) dlclose(module->handle);
 
     module->handle = dlopen(file_path, RTLD_NOW);

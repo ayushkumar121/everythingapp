@@ -7,32 +7,33 @@ LD_MODULE_FLAGS=-lm
 LD_FLAGS_MAC=-framework Cocoa
 LD_FLAGS_LINUX=-lwayland-client
 
-MODULE_SRC_FILES=$(SRC_DIR)/everything.c $(SRC_DIR)/drawing.c $(SRC_DIR)/basic.c
-MAC_SRC_FILES=$(SRC_DIR)/everything_mac.m $(SRC_DIR)/platform_mac.m
-LINUX_SRC_FILES=$(SRC_DIR)/everything_wayland.c $(SRC_DIR)/platform_linux.c $(SRC_DIR)/xdg-shell-protocol.c
-WIN_SRC_FILES=$(SRC_DIR)/everything_win32.c $(SRC_DIR)/platform_win32.c
-
 $(shell mkdir -p $(BUILD_DIR))
 
 UNAME := $(shell uname -s)
 
 ifeq ($(UNAME), Linux)
     DEFAULT_TARGET := $(BUILD_DIR)/everything_wayland
-    MODULE_NAME = everything.so
+    MODULE_NAME := everything.so
 else ifeq ($(UNAME), Darwin)
-    DEFAULT_TARGET := $(BUILD_DIR)/everything_mac
-    MODULE_NAME = everything.dylib
+    DEFAULT_TARGET = $(BUILD_DIR)/everything_mac
+    MODULE_NAME := everything.dylib
 else ifeq ($(UNAME), Windows_NT)
     DEFAULT_TARGET := $(BUILD_DIR)/everything_win32
-    MODULE_NAME = everything.dll
+    MODULE_NAME := everything.dll
 else
     DEFAULT_TARGET := unknown_target
 endif
 
 .DEFAULT_GOAL := $(DEFAULT_TARGET)
 
+MODULE_SRC_FILES=$(SRC_DIR)/everything.c $(SRC_DIR)/drawing.c $(SRC_DIR)/basic.c
+MAC_SRC_FILES=$(SRC_DIR)/everything_mac.m $(SRC_DIR)/hotreload_posix.c
+LINUX_SRC_FILES=$(SRC_DIR)/everything_wayland.c $(SRC_DIR)/hotreload_posix.c $(SRC_DIR)/xdg-shell-protocol.c
+WIN_SRC_FILES=$(SRC_DIR)/everything_win32.c $(SRC_DIR)/hotreload_win32.c
+
+default: $(DEFAULT_TARGET)
 all: $(BUILD_DIR)/everything_wayland $(BUILD_DIR)/everything_mac $(BUILD_DIR)/everything_win32
-hotreload: $(BUILD_DIR)/$(MODULE_NAME)
+hot_reload: $(BUILD_DIR)/$(MODULE_NAME)
 
 $(BUILD_DIR)/everything_wayland: $(BUILD_DIR)/$(MODULE_NAME) $(LINUX_SRC_FILES)
 	$(CC) -o $(BUILD_DIR)/everything_wayland $(LINUX_SRC_FILES) $(CFLAGS) $(LD_FLAGS_LINUX)

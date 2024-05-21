@@ -5,30 +5,27 @@
 #include <string.h>
 #include <stdio.h>
 
+#include "hotreload.h"
+
 typedef struct {
-    uint32_t color;
+    Color clear_color;
 } AppState;
 
 AppState *state = NULL;
 
 void app_init(void) {
     state = malloc(sizeof(AppState));
-    state->color = MAGENTA;
+    state->clear_color = WHITE;
 }
 
-
 void app_update(Env *env) {
-    // Input
-    {
-        if (env->key_down) {
-            clear_screen(env, RED);
-            return;
-        }
+    if (env->mouse_right_down) {
+        clear_screen(env, RED);
+        return;
     }
 
-
     // Rendering
-    clear_screen(env, BLACK);
+    clear_screen(env, state->clear_color);
 
     // Drawing side panel
     {
@@ -39,19 +36,25 @@ void app_update(Env *env) {
                         .w = env->window_width/3,
                         .h = env->window_height,
                 },
-                .background_color = WHITE,
-                .border_radius = 0.0f,
+                .background_color = (Color){.rgba=0xEEEFEFEF},
+                .border_radius = 8.0f,
+                .border_color = (Color){.rgba=0x66222222},
         };
-        panel(env, &args);
         panel(env, &args);
     }
 
     // Drawing files
     {
-        int box_height = 100;
+        int box_height = 50;
         int gap = 10;
         int margin_top = 50;
         int margin_sides = 20;
+
+        static Color button_colors[] = {
+                MAGENTA,
+                RED,
+                GREEN,
+        };
 
         for (int i = 0; i < 3; ++i) {
             ButtonArgs args = {
@@ -61,12 +64,17 @@ void app_update(Env *env) {
                             .w = env->window_width/3-margin_sides,
                             .h = box_height,
                     },
-                    .background_color = 0xFF222222,
-                    .foreground_color = WHITE,
-                    .box_shadow = 8.0f,
-                    .border_radius = 16.0f,
+                    .background_color = (Color){.rgba=0x22222222},
+                    .active_color = (Color){.rgba=0xEE222222},
+                    .hover_color = (Color){.rgba=0x66222222},
+                    .foreground_color = BLACK,
+                    .border_radius = 8.0f,
+                    .border_color = (Color){.rgba=0x66222222},
             };
-            button(env, &args);
+            if (button(env, &args)) {
+                state->clear_color = button_colors[i];
+            }
+
         }
     }
 
@@ -76,12 +84,12 @@ void app_update(Env *env) {
 }
 
 // For hot reloading
-void* app_pre_reload(void) {
-    return state;
+AppStateHandle app_pre_reload(void) {
+    return (AppStateHandle){.state=state, .size=sizeof(AppState)};
 }
 
-void app_post_reload(void* old_state) {
+void app_post_reload(AppStateHandle handle) {
     state = malloc(sizeof(AppState));
-    memcpy(state, old_state, sizeof(*old_state));
-    free(old_state);
+    memcpy(state, handle.state, handle.size);
+    free(handle.state);
 }

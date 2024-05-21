@@ -1,6 +1,6 @@
 #include "config.h"
 #include "env.h"
-#include "platform.h"
+#include "hotreload.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -58,7 +58,7 @@ static int create_shm_file(size_t size) {
   return -1;
 }
 
-void window_reize(void) {
+void window_resize(void) {
   size_t stride = width * 4;
   size_t buffer_size = height * stride;
   size_t pool_length = 1;
@@ -114,7 +114,7 @@ struct wl_callback_listener cb_listener = {
     .done = update_frame,
 };
 
-static void toplevel_configure(void* data, struct xdg_toplevel* toplevel, 
+static void toplevel_configure(void* data, struct xdg_toplevel* toplevel,
 	int32_t w, int32_t h, struct wl_array* states) {
     	(void)data;
     	(void)toplevel;
@@ -130,7 +130,7 @@ static void toplevel_configure(void* data, struct xdg_toplevel* toplevel,
 
         	width = w;
 		height = h;
-        	window_reize();
+            window_resize();
     	}
 }
 
@@ -152,7 +152,7 @@ static void xrfc_configure(void* data, struct xdg_surface* xrfc, uint32_t serial
 
     xdg_surface_ack_configure(xrfc, serial);
     if (!pixel_data) {
-        window_reize();
+        window_resize();
     }
 
     render_frame();
@@ -201,7 +201,7 @@ static const struct wl_registry_listener registry_listener = {registry_handler,
 
 int main(void) {
   // Loading the app module
-  platform_load_module(&module, "./everything.so");
+  load_module(&module, "./everything.so");
     
   // Connect to the Wayland display server
   display = wl_display_connect(NULL);

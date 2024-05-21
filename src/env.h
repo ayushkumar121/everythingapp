@@ -13,9 +13,12 @@ typedef struct {
 
   size_t key_code;
   bool key_down;
+  
   bool mouse_left_down;
   bool mouse_right_down;
   bool mouse_moved;
+  int mouse_x;
+  int mouse_y;
 } Env;
 
 #endif
