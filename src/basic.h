@@ -30,10 +30,11 @@
 #define array_free(array)                                                      \
   MEM_FREE((array)->items, (array)->capacity * sizeof(*((array)->items)))
 
-typedef struct {
-    size_t length;
-    size_t capacity;
-    char *items;
+typedef struct
+{
+	size_t length;
+	size_t capacity;
+	char *items;
 } StringBuilder;
 
 void sb_resize(StringBuilder *sb, size_t new_capacity);
@@ -53,9 +54,10 @@ void sb_push_int(StringBuilder *sb, int i);
 void sb_push_double(StringBuilder *sb, double d);
 StringBuilder sb_clone(StringBuilder *sb);
 
-typedef struct {
-    size_t length;
-    char *items;
+typedef struct
+{
+	size_t length;
+	char *items;
 } StringView;
 
 #define SV_Fmt "%.*s"

@@ -7,6 +7,8 @@ LD_MODULE_FLAGS=-lm
 LD_FLAGS_MAC=-framework Cocoa
 LD_FLAGS_LINUX=-lwayland-client
 
+ASTYLE_OPTS=--style=allman --indent=tab --indent-switches -n -r
+
 $(shell mkdir -p $(BUILD_DIR))
 
 UNAME := $(shell uname -s)
@@ -34,6 +36,8 @@ WIN_SRC_FILES=$(SRC_DIR)/everything_win32.c $(SRC_DIR)/hotreload_win32.c
 default: $(DEFAULT_TARGET)
 all: $(BUILD_DIR)/everything_wayland $(BUILD_DIR)/everything_mac $(BUILD_DIR)/everything_win32
 hot_reload: $(BUILD_DIR)/$(MODULE_NAME)
+format:
+	astyle $(ASTYLE_OPTS) "$(SRC_DIR)/*.c" "$(SRC_DIR)/*.h" "$(SRC_DIR)/*.m"
 
 $(BUILD_DIR)/everything_wayland: $(BUILD_DIR)/$(MODULE_NAME) $(LINUX_SRC_FILES)
 	$(CC) -o $(BUILD_DIR)/everything_wayland $(LINUX_SRC_FILES) $(CFLAGS) $(LD_FLAGS_LINUX)
