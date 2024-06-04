@@ -3,7 +3,6 @@
 
 #include <stdlib.h>
 #include <string.h>
-#include <stdio.h>
 
 #include "hotreload.h"
 
@@ -38,7 +37,7 @@ void app_update(Env *env)
 			.rect = {
 				.x = 0,
 				.y = 0,
-				.w = env->window_width/3,
+				.w = env->window_width/3.0,
 				.h = env->window_height,
 			},
 			.background_color = (Color){.rgba=0xEEEFEFEF},
@@ -48,7 +47,7 @@ void app_update(Env *env)
 		panel(env, &args);
 	}
 
-	// Drawing files
+	// Drawing boxes
 	{
 		int box_height = 50;
 		int gap = 10;
@@ -69,7 +68,7 @@ void app_update(Env *env)
 				.rect = {
 					.x = 10,
 					.y = margin_top+(box_height+gap)*i,
-					.w = env->window_width/3-margin_sides,
+					.w = env->window_width/3.0-margin_sides,
 					.h = box_height,
 				},
 				.background_color = (Color){.rgba=0x22222222},
@@ -87,8 +86,9 @@ void app_update(Env *env)
 		}
 	}
 
-	// Drawing main panel
+	// Drawing test
 	{
+		test(env);
 	}
 }
 

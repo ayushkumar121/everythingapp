@@ -26,18 +26,53 @@ const static Color MAGENTA = {.rgba = 0XFFFF00FF};
 const static Color WHITE = {.rgba = 0XFFFFFFFF};
 const static Color BLACK = {.rgba = 0XFF000000};
 
-typedef struct
+typedef union
 {
-	int x;
-	int y;
-	int w;
-	int h;
-} Rect;
+	struct
+	{
+		float x;
+		float y;
+	};
+	float xy[2];
+} Point;
 
 // Basic drawing functions
+void test(Env *env);
+
 void clear_screen(Env *env, Color color);
 
-// UI elements
+typedef union
+{
+	struct
+	{
+		;
+		Point p1;
+		Point p2;
+		Point p3;
+		Point p4;
+	};
+	Point points[4];
+} BezierCurve;
+
+void draw_curve(Env *env, BezierCurve curve, Color color);
+
+void fill_curve(Env *env, BezierCurve curve, Color color);
+
+typedef union
+{
+	struct
+	{
+		float x;
+		float y;
+		float w;
+		float h;
+	};
+	float xyzw[4];
+} Rect;
+
+void draw_rect(Env *env, Rect rect, Color color);
+
+// Immediate mode UI options
 
 typedef struct
 {

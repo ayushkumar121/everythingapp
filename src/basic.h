@@ -23,6 +23,7 @@
           ((array)->capacity == 0) ? ARRAY_INIT_CAP : (array)->capacity * 2;   \
       (array)->items = MEM_REALLOC(                                            \
           (array)->items, (array)->capacity * sizeof(*(array)->items));        \
+          assert((array)->items != NULL);                                      \
     }                                                                          \
     (array)->items[(array)->length++] = (item);                                \
   } while (0)
@@ -38,6 +39,7 @@ typedef struct
 } StringBuilder;
 
 void sb_resize(StringBuilder *sb, size_t new_capacity);
+
 void sb_free(StringBuilder *sb);
 
 #define sb_push(sb, val)                                                       \
@@ -49,9 +51,13 @@ void sb_free(StringBuilder *sb);
       double: sb_push_double)(sb, val)
 
 void sb_push_str(StringBuilder *sb, char *str);
+
 void sb_push_char(StringBuilder *sb, char ch);
+
 void sb_push_int(StringBuilder *sb, int i);
+
 void sb_push_double(StringBuilder *sb, double d);
+
 StringBuilder sb_clone(StringBuilder *sb);
 
 typedef struct
@@ -64,13 +70,21 @@ typedef struct
 #define SV_Arg(sv) (int)(sv).length, (sv).items
 
 StringView sv_from_parts(char *str, size_t len);
+
 StringView sv_from_cstr(char *str);
+
 StringView sv_from_sb(StringBuilder *sb);
+
 bool sv_equal(StringView s1, StringView s2);
+
 StringView sv_trim_left(StringView sv);
+
 StringView sv_trim_right(StringView sv);
+
 StringView sv_trim(StringView sv);
+
 StringView sv_chop_delim(StringView *sv, char delim);
+
 StringView sv_chop_str(StringView *sv, char *str);
 
 #endif // BASIC_H
