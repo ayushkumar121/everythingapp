@@ -30,7 +30,7 @@ Color layer_color(Color color1, Color color2) {
     return (Color){.r=(uint8_t)r, .g=(uint8_t)g, .b=(uint8_t)b, .a=(uint8_t)color1.a};
 }
 
-inline bool is_inside_rect(int x, int y, Rect r) {
+inline static bool is_inside_rect(int x, int y, Rect r) {
     return x >= r.x && x <= (r.x + r.w) && y >= r.y && y <= (r.y + r.h);
 }
 

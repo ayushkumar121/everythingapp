@@ -54,8 +54,6 @@ double getTime(void) {
 
     self.lastFrameTime = getTime();
 
-    module.app_init();
-
     [NSTimer scheduledTimerWithTimeInterval:1.0 / 60.0
                                      target:self
                                    selector:@selector(updateFrame)
@@ -179,6 +177,7 @@ double getTime(void) {
 
 int main(void) {
     load_module(&module, "./everything.dylib");
+    module.app_init();
 
     @autoreleasepool {
         NSApplication *application = [NSApplication sharedApplication];
