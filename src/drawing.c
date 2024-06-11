@@ -142,6 +142,19 @@ void draw_rect_ex(Env *env, Rect rect, Color color, float border_radius, Color b
 	}
 }
 
+void draw_rect(Env *env, Rect rect, Color color)
+{
+	for (size_t cy = rect.y; cy <= rect.y + rect.h; ++cy)
+	{
+		for (size_t cx = rect.x; cx <= rect.x + rect.w; ++cx)
+		{
+			Color base = get_pixel(env, cx, cy);
+			Color final = layer_color(base, color);
+			put_pixel(env, cx, cy, final);
+		}
+	}
+}
+
 void draw_curve(Env *env, BezierCurve curve, Color color)
 {
 	float t = 0.0f;
@@ -168,24 +181,6 @@ typedef struct
 	Point *items;
 } Points;
 
-// Subdivide the Bezier curve into line segments
-void subdivide_curve(BezierCurve curve, Points *points)
-{
-	float t = 0.0f;
-	while (t <= 1.0f)
-	{
-		Point p5 = lerp_points(curve.p1, curve.p2, t);
-		Point p6 = lerp_points(curve.p2, curve.p3, t);
-		Point p7 = lerp_points(curve.p3, curve.p4, t);
-
-		Point p8 = lerp_points(p5, p6, t);
-		Point p9 = lerp_points(p6, p7, t);
-
-		array_append(points, lerp_points(p8, p9, t));
-		t += EPSILON;
-	}
-}
-
 /* Public functions */
 void clear_screen(Env *env, Color color)
 {
@@ -208,6 +203,14 @@ void test(Env *env)
 		.p4 = {.x=1000.0f, .y=300.0f}, // End
 	};
 	draw_curve(env, curve, BLACK);
+
+	Rect rect = {
+    		.x = 400.0f,
+    		.y = 300.0f,
+    		.w = 600.0f,
+    		.h = 100.0f,
+	};
+	draw_rect(env, rect, RED);
 
 	curve = (BezierCurve)
 	{

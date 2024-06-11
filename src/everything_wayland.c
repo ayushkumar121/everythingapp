@@ -196,8 +196,9 @@ static void pointer_motion(void *data,
 	(void)data;
 	(void)wl_pointer;
 	(void)time;
-	env.mouse_x = surface_x;
-	env.mouse_y = surface_y;
+	
+	env.mouse_x = wl_fixed_to_double(surface_x);
+	env.mouse_y = wl_fixed_to_double(surface_y);
 }
 
 static void pointer_button(void *data,

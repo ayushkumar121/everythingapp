@@ -21,12 +21,6 @@ void app_init(void)
 
 void app_update(Env *env)
 {
-	if (env->mouse_right_down)
-	{
-		clear_screen(env, RED);
-		return;
-	}
-
 	// Rendering
 	clear_screen(env, state->clear_color);
 
