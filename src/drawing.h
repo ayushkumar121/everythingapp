@@ -92,7 +92,7 @@ typedef union __attribute__((packed))
 void draw_curve(Image image, BezierCurve curve, Color color);
 
 void draw_rect(Image image, Rect rect, Color color);
-void draw_rounded_rect(Image image, Rect rect, Color color, float border_radius, Color border_color);
+void draw_rounded_rect(Image image, Rect rect, Color color, float border_radius);
 
 typedef enum
 {
@@ -144,8 +144,6 @@ typedef struct
 	Rect rect;
 	Color background_color;
 	float border_radius;
-	float border_size;
-	Color border_color;
 } PanelArgs;
 
 bool panel(Env *env, PanelArgs *args);
@@ -158,8 +156,6 @@ typedef struct
 	Color hover_color;
 	Color active_color;
 	float border_radius;
-	float border_size;
-	Color border_color;
 	const char *text;
 	Font *font;
 	int font_size;

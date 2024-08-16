@@ -57,17 +57,27 @@ Image image_from_env(Env* env)
 	return image;
 }
 
-Color layer_color(Color color1, Color color2)
+Color layer_color(Color bottom, Color top)
 {
-	float f = (float) color2.a / 255.0f;
-	float r = (float) color2.r * f + (float) color1.r * (1.0f - f);
-	float g = (float) color2.g * f + (float) color1.g * (1.0f - f);
-	float b = (float) color2.b * f + (float) color1.b * (1.0f - f);
+	float f = (float) top.a / 255.0f;
+	float r = (float) top.r * f + (float) bottom.r * (1.0f - f);
+	float g = (float) top.g * f + (float) bottom.g * (1.0f - f);
+	float b = (float) top.b * f + (float) bottom.b * (1.0f - f);
 
 	return (Color)
 	{
-		.r=(uint8_t) r, .g=(uint8_t) g, .b=(uint8_t) b, .a=(uint8_t) color1.a
+		.r=(uint8_t) r, .g=(uint8_t) g, .b=(uint8_t) b, .a=(uint8_t) bottom.a
 	};
+}
+
+Color mix_color(Color a, Color b, float t)
+{
+	Color c = {0};
+	c.r = lerp(a.r, b.r, t);
+	c.g = lerp(a.g, b.g, t);
+	c.b = lerp(a.b, b.b, t);
+	c.a = lerp(a.a, b.a, t);
+	return c;
 }
 
 Point lerp_points(Point a, Point b, float t)
@@ -163,7 +173,7 @@ void draw_rect(Image image, Rect rect, Color color)
 	}
 }
 
-void draw_rounded_rect(Image image, Rect rect, Color color, float border_radius, Color border_color)
+void draw_rounded_rect(Image image, Rect rect, Color color, float border_radius)
 {
 	for (size_t cy = rect.y; cy <= rect.y + rect.h; ++cy)
 	{
@@ -173,14 +183,8 @@ void draw_rounded_rect(Image image, Rect rect, Color color, float border_radius,
 
 			if (result != OUTSIDE_BORDER)
 			{
-				Color rect_color = color;
-				if (result == ON_BORDER)
-				{
-					rect_color = border_color;
-				}
-
 				Color base = get_pixel(image, cx, cy);
-				Color final = layer_color(base, rect_color);
+				Color final = layer_color(base, color);
 				put_pixel(image, cx, cy, final);
 			}
 		}
@@ -617,6 +621,7 @@ void draw_text_bdf(Image image, TextArgs *args)
 	int n = strlen(args->text);
 
 	float scaling = (float)args->size / (float)font->size;
+	int samples = 3;  // Supersampling factor
 
 	for (int i = 0; i < n; ++i)
 	{
@@ -629,63 +634,38 @@ void draw_text_bdf(Image image, TextArgs *args)
 		int x_offset = glyph.x_offset * scaling;
 		int y_offset = glyph.y_offset * scaling;
 
-		Image glyph_image =
-		{
-			.width = width,
-			.height = height,
-			.pixels = malloc(width * height * sizeof(Color)),
-		};
-		assert(glyph_image.pixels != NULL);
-		memset(glyph_image.pixels, 0, width * height * sizeof(Color));
-
 		for (int gy = 0; gy < height; ++gy)
 		{
 			for (int gx = 0; gx < width; ++gx)
 			{
-				int row = (float)gy / scaling;
-				int col = (float)gx / scaling;
+				int coverage = 0; 
 
-				uint64_t mask = 1 << (16 - col - 1);
-				
-				Color color = (glyph.bitmap[row] & mask) ? args->color : TRANSPARENT;
-				put_pixel(glyph_image, gx, gy, color);
+				// Supersampling
+				for (int sy = 0; sy < samples; ++sy)
+				{
+					for (int sx = 0; sx < samples; ++sx)
+					{
+						float sample_y = ((float)gy + (float)sy / samples) / scaling;
+						float sample_x = ((float)gx + (float)sx / samples) / scaling;
+
+						int row = (int)sample_y;
+						int col = (int)sample_x;
+
+						if (row >= 0 && row < glyph.height && col >= 0 && col < glyph.width)
+						{
+							uint64_t mask = 1 << (16 - col - 1);
+
+							if (glyph.bitmap[row] & mask)
+								coverage++;
+						}
+					}
+				}
+
+				float coverage_ratio = (float)coverage / (samples * samples);
+				Color color = mix_color(TRANSPARENT, args->color, coverage_ratio);
+				put_pixel(image, x + gx + x_offset, y + gy + y_offset, color);
 			}
 		}
-
-		Image blurred_image = duplicate_image(glyph_image);
-		fade_image(blurred_image, 0.8f);
-		blur_image(blurred_image);
-
-		ImageArgs blurred_image_args =
-		{
-			.image = &blurred_image,
-			.rect = (Rect)
-			{
-				.x = x+x_offset,
-				.y = y+y_offset,
-				.w = blurred_image.width,
-				.h = blurred_image.height,
-			},
-			.crop = NULL,
-		};
-		draw_image(image, &blurred_image_args);
-		free_image(&blurred_image);
-
-		ImageArgs glyph_image_args =
-		{
-			.image = &glyph_image,
-			.rect = (Rect)
-			{
-				.x = x+x_offset,
-				.y = y+y_offset,
-				.w = glyph_image.width,
-				.h = glyph_image.height,
-			},
-			.crop = NULL,
-		};
-
-		draw_image(image, &glyph_image_args);
-		free_image(&glyph_image);
 
 		x += glyph.advance * scaling;
 	}
@@ -756,7 +736,7 @@ bool button(Env *env, ButtonArgs *args)
 
 	Image background = image_from_env(env);
 
-	draw_rounded_rect(background, args->rect, bg_color, args->border_radius, args->border_color);
+	draw_rounded_rect(background, args->rect, bg_color, args->border_radius);
 	Point text_size = measure_text(args->font, args->text, args->font_size);
 	TextArgs text_args = 
 	{
@@ -785,7 +765,7 @@ bool panel(Env *env, PanelArgs *args)
 	bool clicked = env->mouse_left_down && mouse_over;
 
 	Image background = image_from_env(env);
-	draw_rounded_rect(background, args->rect, args->background_color, args->border_radius, args->border_color);
+	draw_rounded_rect(background, args->rect, args->background_color, args->border_radius);
 
 	return clicked;
 }

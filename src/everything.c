@@ -4,14 +4,15 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
+#include <math.h>
 
 #include "hotreload.h"
 
 typedef struct
 {
-	Image lena;
+	Image background_image;
 	Font font;
-	Color clear_color;
+	Color foreground_color;
 } AppState;
 
 AppState *state = NULL;
@@ -19,17 +20,34 @@ AppState *state = NULL;
 void app_init(void)
 {
 	state = malloc(sizeof(AppState));
-	state->clear_color = WHITE;
+	state->foreground_color = MAGENTA;
 
-	load_image(&state->lena, "assets/lena.bmp");
-	load_font(&state->font, "assets/ter-u18n.bdf");
+	load_image(&state->background_image, "assets/sample3.bmp");
+	load_font(&state->font, "assets/spleen-16x32.bdf");
 }
 
 void app_update(Env *env)
 {
 	Image window = image_from_env(env);
 
-	clear_image(window, state->clear_color);
+	clear_image(window, WHITE);
+
+	// Drawing background image
+	{
+		ImageArgs image_args =
+		{
+			.image = &state->background_image,
+			.rect = (Rect)
+			{
+				.x = 0,
+				.y = 0,
+				.w = window.width,
+				.h = window.height,
+			},
+			.crop = NULL,
+		};
+		draw_image(window, &image_args);
+	}
 
 	// Drawing side panel
 	{
@@ -41,9 +59,8 @@ void app_update(Env *env)
 				.w = env->width/3.0,
 				.h = env->height,
 			},
-			.background_color = (Color){.rgba=0xEEEFEFEF},
+			.background_color = (Color){.rgba=0xAAEFEFEF},
 			.border_radius = 8.0f,
-			.border_color = (Color){.rgba=0x66222222},
 		};
 		panel(env, &args);
 	}
@@ -61,7 +78,6 @@ void app_update(Env *env)
 			RED,
 			GREEN,
 		};
-
 		char* button_text[] =
 		{
 			"MAGENTA",
@@ -84,17 +100,54 @@ void app_update(Env *env)
 				.hover_color = (Color){.rgba=0x66222222},
 				.foreground_color = (Color){.rgba=0x66222222},
 				.border_radius = 8.0f,
-				.border_color = (Color){.rgba=0x66222222},
 				.text = button_text[i],
 				.font = &state->font,
 				.font_size = 24,
 			};
 			if (button(env, &args))
 			{
-				state->clear_color = button_colors[i];
+				state->foreground_color = button_colors[i];
 			}
-
 		}
+	}
+
+	// Drawing text
+	{
+		char* text = "Hello, World!";
+		Point text_size = measure_text(&state->font, text, 52);
+		TextArgs args =
+		{
+			.font = &state->font,
+			.text = text,
+			.size = 52,
+			.position = (Point){
+				.x=env->width/3.0 + env->width/3.0 - text_size.x/2, 
+				.y=env->height/2.0- text_size.y/2
+			},
+			.color = state->foreground_color,
+		};
+		draw_text(window, &args);
+	}
+
+	{
+		float fps = 1/(env->delta_time);
+		char text[100];
+		sprintf(text, "FPS: %.2f", roundf(fps));
+		Point text_size = measure_text(&state->font, text, 52);
+
+		TextArgs args =
+		{
+			.font = &state->font,
+			.text = text,
+			.size = 28,
+			.position = (Point){
+				.x=window.width-text_size.x/2.0f, 
+				.y=50.0f,
+			},
+			.color = state->foreground_color,
+		};
+		draw_text(window, &args);
+
 	}
 }
 
