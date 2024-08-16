@@ -130,8 +130,8 @@ void render_frame(void)
 
 	env.delta_time = dt;
 	env.buffer = pixel_data;
-	env.window_width = width;
-	env.window_height = height;
+	env.width = width;
+	env.height = height;
 
 	module.app_update(&env);
 	input_used = true;

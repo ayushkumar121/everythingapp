@@ -8,8 +8,8 @@
 typedef struct
 {
 	double delta_time;
-	int window_width;
-	int window_height;
+	int width;
+	int height;
 	uint8_t *buffer;
 
 	size_t key_code;

@@ -10,6 +10,7 @@ LD_FLAGS_LINUX=-lwayland-client
 ASTYLE_OPTS=--style=allman --indent=tab --indent-switches -n -r
 
 $(shell mkdir -p $(BUILD_DIR))
+$(shell cp -r assets $(BUILD_DIR))
 
 UNAME := $(shell uname -s)
 
@@ -55,6 +56,6 @@ unknown_target:
 	@echo "ERROR: Unknown platform"
 
 clean:
-	rm -rf build
+	rm -rf build/*
 
 .PHONY: clean

@@ -98,15 +98,15 @@ double getTime(void)
 	// Allocate a new buffer or reuse the existing one
 
 	size_t newBufferSize = width * height * sizeof(uint32_t);
-	size_t oldBufferSize = env.window_width * env.window_height * sizeof(uint32_t);
+	size_t oldBufferSize = env.width * env.height * sizeof(uint32_t);
 	if (!env.buffer || (env.buffer && oldBufferSize != newBufferSize))
 	{
 		if (env.buffer)
 			free(env.buffer);
 
 		env.buffer = malloc(newBufferSize);
-		env.window_width = width;
-		env.window_height = height;
+		env.width = width;
+		env.height = height;
 	}
 
 	// Updating the actual app

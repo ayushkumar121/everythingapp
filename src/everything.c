@@ -3,11 +3,14 @@
 
 #include <stdlib.h>
 #include <string.h>
+#include <stdio.h>
 
 #include "hotreload.h"
 
 typedef struct
 {
+	Image lena;
+	Font font;
 	Color clear_color;
 } AppState;
 
@@ -17,18 +20,16 @@ void app_init(void)
 {
 	state = malloc(sizeof(AppState));
 	state->clear_color = WHITE;
+
+	load_image(&state->lena, "assets/lena.bmp");
+	load_font(&state->font, "assets/ter-u18n.bdf");
 }
 
 void app_update(Env *env)
 {
-	if (env->mouse_right_down)
-	{
-		clear_screen(env, RED);
-		return;
-	}
+	Image window = image_from_env(env);
 
-	// Rendering
-	clear_screen(env, state->clear_color);
+	clear_image(window, state->clear_color);
 
 	// Drawing side panel
 	{
@@ -37,8 +38,8 @@ void app_update(Env *env)
 			.rect = {
 				.x = 0,
 				.y = 0,
-				.w = env->window_width/3.0,
-				.h = env->window_height,
+				.w = env->width/3.0,
+				.h = env->height,
 			},
 			.background_color = (Color){.rgba=0xEEEFEFEF},
 			.border_radius = 8.0f,
@@ -54,11 +55,18 @@ void app_update(Env *env)
 		int margin_top = 50;
 		int margin_sides = 20;
 
-		static Color button_colors[] =
+		Color button_colors[] =
 		{
 			MAGENTA,
 			RED,
 			GREEN,
+		};
+
+		char* button_text[] =
+		{
+			"MAGENTA",
+			"RED",
+			"GREEN",
 		};
 
 		for (int i = 0; i < 3; ++i)
@@ -68,15 +76,18 @@ void app_update(Env *env)
 				.rect = {
 					.x = 10,
 					.y = margin_top+(box_height+gap)*i,
-					.w = env->window_width/3.0-margin_sides,
+					.w = env->width/3.0-margin_sides,
 					.h = box_height,
 				},
 				.background_color = (Color){.rgba=0x22222222},
 				.active_color = (Color){.rgba=0xEE222222},
 				.hover_color = (Color){.rgba=0x66222222},
-				.foreground_color = BLACK,
+				.foreground_color = (Color){.rgba=0x66222222},
 				.border_radius = 8.0f,
 				.border_color = (Color){.rgba=0x66222222},
+				.text = button_text[i],
+				.font = &state->font,
+				.font_size = 24,
 			};
 			if (button(env, &args))
 			{
@@ -84,11 +95,6 @@ void app_update(Env *env)
 			}
 
 		}
-	}
-
-	// Drawing test
-	{
-		test(env);
 	}
 }
 
