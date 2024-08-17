@@ -37,6 +37,7 @@ int height = INIT_HEIGHT;
 double last_frame_time = 0.0;
 bool window_should_close = false;
 bool input_used = false;
+bool app_initialised = false;
 
 Env env = {0};
 AppModule module = {0};
@@ -132,6 +133,12 @@ void render_frame(void)
 	env.buffer = pixel_data;
 	env.width = width;
 	env.height = height;
+
+	if (!app_initialised)
+	{
+		module.app_init(&env);
+		app_initialised = true;
+	}
 
 	module.app_update(&env);
 	input_used = true;
@@ -466,7 +473,7 @@ int main(void)
 
 	// Loading the app module
 	load_module(&module, "./everything.so");
-	module.app_init();
+	module.app_load();
 
 	// Connect to the Wayland display server
 	display = wl_display_connect(NULL);

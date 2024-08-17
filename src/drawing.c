@@ -1,48 +1,33 @@
 #include "drawing.h"
 #include "basic.h"
 
-#include <stdbool.h>
 #include <math.h>
 
 #define EPSILON 1e-3f;
 #define BORDER_RADIUS_THRESHOLD 10.0f;
 
-inline static float lerp(float a, float b, float t)
+float lerp(float a, float b, float t)
 {
 	return a + (b - a) * t;
 }
 
-inline static float clamp(float x, float min, float max)
+float clamp(float x, float min, float max)
 {
 	if (x < min) return min;
 	if (x > max) return max;
 	return x;
 }
 
-inline static bool inside_rect(Point p, Rect r)
+bool inside_rect(Point p, Rect r)
 {
 	return p.x >= r.x && p.x <= (r.x + r.w) && p.y >= r.y && p.y <= (r.y + r.h);
 }
 
-inline static Color get_pixel(Image image, int x, int y)
+Rect rect_add_point(Rect r, Point p)
 {
-	assert(image.pixels != NULL);
-
-	if (x < 0 || x >= image.width) return TRANSPARENT;
-	if (y < 0 || y >= image.height) return TRANSPARENT;
-
-	return image.pixels[y * image.width + x];
-}
-
-inline static void put_pixel(Image image, int x, int y, Color color)
-{
-	assert(image.pixels != NULL);
-	
-	if (color.a == 0) return;
-	if (x < 0 || x >= image.width) return;
-	if (y < 0 || y >= image.height) return;
-
-	image.pixels[y * image.width + x] = color;
+	r.x += p.x;
+	r.y += p.y;
+	return r;
 }
 
 Image image_from_env(Env* env)
@@ -57,6 +42,27 @@ Image image_from_env(Env* env)
 	return image;
 }
 
+Env env_from_image(Image image)
+{
+	return (Env){
+		.width = image.width,
+		.height = image.height,
+		.buffer = (uint8_t*)image.pixels,
+	};
+}
+
+Env new_env(Env* env, int width, int height)
+{
+	Env new_env = *env;
+	new_env.width = width;
+	new_env.height = height;
+	size_t size = width * height * sizeof(Color);
+	new_env.buffer = (uint8_t*)malloc(size);
+	assert(new_env.buffer != NULL);
+	memset(new_env.buffer, 0, size);
+	return new_env;
+}
+
 Color layer_color(Color bottom, Color top)
 {
 	float f = (float) top.a / 255.0f;
@@ -66,8 +72,29 @@ Color layer_color(Color bottom, Color top)
 
 	return (Color)
 	{
-		.r=(uint8_t) r, .g=(uint8_t) g, .b=(uint8_t) b, .a=(uint8_t) bottom.a
+		.r=(uint8_t) r, .g=(uint8_t) g, .b=(uint8_t) b, .a=top.a
 	};
+}
+
+Color get_pixel(Image image, int x, int y)
+{
+	assert(image.pixels != NULL);
+
+	if (x < 0 || x >= image.width) return TRANSPARENT;
+	if (y < 0 || y >= image.height) return TRANSPARENT;
+
+	return image.pixels[y * image.width + x];
+}
+
+void put_pixel(Image image, int x, int y, Color color)
+{
+	assert(image.pixels != NULL);
+
+	if (color.a == 0) return;
+	if (x < 0 || x >= image.width) return;
+	if (y < 0 || y >= image.height) return;
+
+	image.pixels[y * image.width + x] = layer_color(get_pixel(image, x, y), color);
 }
 
 Color mix_color(Color a, Color b, float t)
@@ -99,12 +126,11 @@ BorderCheckResult border_radius_check(Rect rect, int cx, int cy, float r)
 {
 	float r_squared = r * r;
 
-	float c;
 	bool inside_border = false;
 	bool on_border = false;
 
 	// Top Left corner
-	c = powf(cx - (rect.x + r), 2.0f) + powf(cy - (rect.y + r), 2.0f);
+	float c = powf(cx - (rect.x + r), 2.0f) + powf(cy - (rect.y + r), 2.0f);
 	if (cx <= (rect.x + r) && cy <= (rect.y + r))
 	{
 		inside_border = c < r_squared;
@@ -183,9 +209,7 @@ void draw_rounded_rect(Image image, Rect rect, Color color, float border_radius)
 
 			if (result != OUTSIDE_BORDER)
 			{
-				Color base = get_pixel(image, cx, cy);
-				Color final = layer_color(base, color);
-				put_pixel(image, cx, cy, final);
+				put_pixel(image, cx, cy, color);
 			}
 		}
 	}
@@ -270,9 +294,9 @@ void blur_image(Image image)
 				}
 			}
 
-			r = clamp(r, 0, 255);
-        	g = clamp(g, 0, 255);
-        	b = clamp(b, 0, 255);
+			r = clamp(r, 0.0f, 255.0f);
+        	g = clamp(g, 0.0f, 255.0f);
+        	b = clamp(b, 0.0f, 255.0f);
 
 			put_pixel(image, x, y, (Color){
 				.r=(uint8_t)r, 
@@ -306,13 +330,7 @@ Image scale_image(Image image, float sx, float sy)
 	int scaled_w = (int)((float)image.width * sx);
 	int scaled_h = (int)((float)image.height * sy);
 
-	Image scaled_image = {0};
-	scaled_image.width = scaled_w;
-	scaled_image.height = scaled_h;
-	size_t size = scaled_w * scaled_h * sizeof(Color);
-	scaled_image.pixels = malloc(size);
-	assert(scaled_image.pixels != NULL);
-	memset(scaled_image.pixels, 0, size);
+	Image scaled_image = new_image(scaled_w, scaled_h);
 
 	for (int y = 0; y < scaled_h; ++y)
 	{
@@ -333,15 +351,23 @@ Image duplicate_image(Image image)
 {
 	assert(image.pixels != NULL);
 
-	Image duplicate = {0};
-	duplicate.width = image.width;
-	duplicate.height = image.height;
-	size_t size = image.width * image.height * sizeof(Color);
-	duplicate.pixels = malloc(size);
-	assert(duplicate.pixels != NULL);
-	memcpy(duplicate.pixels, image.pixels, size);
+	Image duplicate = new_image(image.width, image.height);
+	memcpy(duplicate.pixels, image.pixels, image.width * image.height * sizeof(Color));
 
 	return duplicate;
+}
+
+Image new_image(int width, int height)
+{
+	Image image = {0};
+	image.width = width;
+	image.height = height;
+	size_t size = width * height * sizeof(Color);
+	image.pixels = malloc(size);
+	assert(image.pixels != NULL);
+	memset(image.pixels, 0, size);
+
+	return image;
 }
 
 void load_image_bmp(Image *image, const char *filename)
@@ -437,17 +463,13 @@ void load_image(Image *image, const char *filename)
 	}
 }
 
-void draw_image(Image background, ImageArgs *args)
+void draw_image(Image background, Image image, Rect rect, Rect *crop)
 {
-	assert(args->image != NULL);
-	assert(args->image->pixels != NULL);
+	assert(image.pixels != NULL);
 
-	Image *image = args->image;
-	Rect rect = args->rect;
-	Rect *crop = args->crop;
 	if (crop == NULL)
 	{
-		crop = &(Rect){.x = 0, .y = 0, .w = image->width, .h = image->height};
+		crop = &(Rect){.x = 0, .y = 0, .w = image.width, .h = image.height};
 	}
 
 	float sx = crop->w / rect.w;
@@ -459,11 +481,9 @@ void draw_image(Image background, ImageArgs *args)
 		{
 			int ix = (int)(x * sx + crop->x);
 			int iy = (int)(y * sy + crop->y);
-			int k = iy * image->width + ix;
+			int k = iy * image.width + ix;
 
-			Color base = get_pixel(background, x + rect.x, y + rect.y);
-			Color final = layer_color(base,  image->pixels[k]);
-			put_pixel(background, x + rect.x, y + rect.y, final);
+			put_pixel(background, x + rect.x, y + rect.y, image.pixels[k]);
 		}
 	}
 }
@@ -473,6 +493,25 @@ void free_image(Image *image)
 	free(image->pixels);
 	image->pixels = NULL;
 }
+
+typedef struct
+{
+	int width;
+	int height;
+	int x_offset;
+	int y_offset;
+	int advance;
+	uint64_t *bitmap;
+} FontBDFGlyph;
+
+#define FONT_BDF_GLYPH_COUNT 128
+typedef struct
+{
+	int size;
+	int x_dpi;
+	int y_dpi;
+	FontBDFGlyph glyphs[FONT_BDF_GLYPH_COUNT];
+} FontBDF;
 
 void load_font_bdf(Font *font, const char *filename)
 {
@@ -511,7 +550,7 @@ void load_font_bdf(Font *font, const char *filename)
 		}
 		else
 		{
-			if (code < 0 || code >= 128)
+			if (code < 0 || code >= FONT_BDF_GLYPH_COUNT)
 				continue;
 
 			if (strncmp(line, "BBX", 3) == 0)
@@ -568,12 +607,11 @@ void load_font(Font *font, const char *filename)
 	}
 }
 
-Point measure_text_bdf(Font *font, const char* text, int size)
+Point measure_text_bdf(Font font, const char* text, int size)
 {
-	assert(font != NULL);
-	assert(font->data != NULL);
+	assert(font.data != NULL);
 
-	FontBDF *font_bdf = (FontBDF *)font->data;
+	FontBDF *font_bdf = (FontBDF *)font.data;
 	int n = strlen(text);
 
 	float scaling = (float)size / (float)font_bdf->size;
@@ -594,13 +632,12 @@ Point measure_text_bdf(Font *font, const char* text, int size)
 
 }
 
-Point measure_text(Font *font, const char* text, int size)
+Point measure_text(Font font, const char* text, int size)
 {
-	switch (font->format)
+	switch (font.format)
 	{
 	case FONT_BDF:
 		return measure_text_bdf(font, text, size);
-		break;
 	default:
 		fprintf(stderr, "ERROR: Unsupported font format\n");
 		break;
@@ -609,24 +646,23 @@ Point measure_text(Font *font, const char* text, int size)
 	return (Point){.x=0, .y=0};
 }
 
-void draw_text_bdf(Image image, TextArgs *args)
+void draw_text_bdf(Image image, Font font, const char *text, int size, Point position, Color text_color)
 {
-	assert(args->font != NULL);
-	assert(args->font->data != NULL);
+	assert(font.data != NULL);
 
-	FontBDF *font = (FontBDF *)args->font->data;
-	int x = args->position.x;
-	int y = args->position.y;
+	FontBDF *font_bdf = (FontBDF *)font.data;
+	int x = position.x;
+	int y = position.y;
 
-	int n = strlen(args->text);
+	int n = strlen(text);
 
-	float scaling = (float)args->size / (float)font->size;
-	int samples = 3;  // Supersampling factor
+	float scaling = (float)size / (float)font_bdf->size;
+	static int samples = 3;
 
 	for (int i = 0; i < n; ++i)
 	{
-		char ch = args->text[i];
-		FontBDFGlyph glyph = font->glyphs[(int)ch];
+		char ch = text[i];
+		FontBDFGlyph glyph = font_bdf->glyphs[(int)ch];
 
 		int width = glyph.width * scaling;
 		int height = glyph.height * scaling;
@@ -638,9 +674,7 @@ void draw_text_bdf(Image image, TextArgs *args)
 		{
 			for (int gx = 0; gx < width; ++gx)
 			{
-				int coverage = 0; 
-
-				// Supersampling
+				int coverage = 0;
 				for (int sy = 0; sy < samples; ++sy)
 				{
 					for (int sx = 0; sx < samples; ++sx)
@@ -662,7 +696,8 @@ void draw_text_bdf(Image image, TextArgs *args)
 				}
 
 				float coverage_ratio = (float)coverage / (samples * samples);
-				Color color = mix_color(TRANSPARENT, args->color, coverage_ratio);
+				Color base = get_pixel(image, x + gx + x_offset, y + gy + y_offset);
+				Color color = mix_color(base, text_color, coverage_ratio);
 				put_pixel(image, x + gx + x_offset, y + gy + y_offset, color);
 			}
 		}
@@ -671,12 +706,12 @@ void draw_text_bdf(Image image, TextArgs *args)
 	}
 }
 
-void draw_text(Image image, TextArgs *args)
+void draw_text(Image image, Font font, const char *text, int size, Point position, Color text_color)
 {
-	switch (args->font->format)
+	switch (font.format)
 	{
 	case FONT_BDF:
-		draw_text_bdf(image, args);
+		draw_text_bdf(image, font, text, size, position, text_color);
 		break;
 	default:
 		fprintf(stderr, "ERROR: Unsupported font format\n");
@@ -687,11 +722,12 @@ void draw_text(Image image, TextArgs *args)
 void free_font_bdf(Font *font)
 {
 	FontBDF *font_bdf = (FontBDF *)font->data;
-	for (int i = 0; i < 256; ++i)
+	for (int i = 0; i < FONT_BDF_GLYPH_COUNT; ++i)
 	{
 		free(font_bdf->glyphs[i].bitmap);
 	}
 	free(font->data);
+	font->data = NULL;
 }
 
 void free_font(Font *font)
@@ -705,67 +741,4 @@ void free_font(Font *font)
 		fprintf(stderr, "ERROR: Unsupported font format\n");
 		break;
 	}
-}
-
-bool button(Env *env, ButtonArgs *args)
-{
-	assert(args != NULL);
-
-	Point mouse_pos = (Point)
-	{
-		.x=(float) env->mouse_x, .y=(float) env->mouse_y
-	};
-
-	bool mouse_over = inside_rect(mouse_pos, args->rect);
-	bool hover = !env->mouse_left_down && mouse_over;
-	bool clicked = env->mouse_left_down && mouse_over;
-
-	Color bg_color;
-	if (hover)
-	{
-		bg_color = args->hover_color;
-	}
-	else if (clicked)
-	{
-		bg_color = args->active_color;
-	}
-	else
-	{
-		bg_color = args->background_color;
-	}
-
-	Image background = image_from_env(env);
-
-	draw_rounded_rect(background, args->rect, bg_color, args->border_radius);
-	Point text_size = measure_text(args->font, args->text, args->font_size);
-	TextArgs text_args = 
-	{
-		.font = args->font,
-		.text = args->text,
-		.size = args->font_size,
-		.color = args->foreground_color,
-		.position = (Point)
-		{
-			.x = args->rect.x + args->rect.w/2.0 - text_size.x/2.0,
-			.y = args->rect.y + args->rect.h/2.0 - text_size.y/2.0,
-		},
-	};
-	draw_text(background, &text_args);
-	return clicked;
-}
-
-bool panel(Env *env, PanelArgs *args)
-{
-	Point mouse_pos = (Point)
-	{
-		.x = (float) env->mouse_x, .y = (float) env->mouse_y
-	};
-
-	bool mouse_over = inside_rect(mouse_pos, args->rect);
-	bool clicked = env->mouse_left_down && mouse_over;
-
-	Image background = image_from_env(env);
-	draw_rounded_rect(background, args->rect, args->background_color, args->border_radius);
-
-	return clicked;
 }

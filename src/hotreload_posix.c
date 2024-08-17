@@ -15,6 +15,7 @@ void load_module(AppModule *module, char* file_path)
 		exit(EXIT_FAILURE);
 	}
 
+	module->app_load = dlsym(module->handle, "app_load");
 	module->app_init = dlsym(module->handle, "app_init");
 	module->app_update = dlsym(module->handle, "app_update");
 	module->app_pre_reload = dlsym(module->handle, "app_pre_reload");

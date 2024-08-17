@@ -1,5 +1,4 @@
-#ifndef HOTRELOAD_H
-#define HOTRELOAD_H
+#pragma once
 
 #include "env.h"
 
@@ -13,7 +12,8 @@ typedef struct
 
 typedef struct
 {
-	void (*app_init)(void);
+	void (*app_load)(void);
+	void (*app_init)(Env *env);
 	void (*app_update)(Env *env);
 
 	// For hot reloading
@@ -24,5 +24,3 @@ typedef struct
 } AppModule;
 
 void load_module(AppModule *module, char* file_path);
-
-#endif // HOTRELOAD_H

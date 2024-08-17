@@ -1,5 +1,4 @@
-#ifndef BASIC_H
-#define BASIC_H
+#pragma once
 
 #include <assert.h>
 #include <ctype.h>
@@ -11,17 +10,22 @@
 #include <stdlib.h>
 #include <string.h>
 
-#define MEM_REALLOC realloc
-#define MEM_FREE(ptr, size) free(ptr)
-
 #define ARRAY_INIT_CAP 10
+
+#define ARRAY(T)     \
+  struct             \
+  {                  \
+    size_t length;   \
+    size_t capacity; \
+    T *items;        \
+  }
 
 #define array_append(array, item)                                              \
   do {                                                                         \
     if ((array)->capacity < (array)->length + 1) {                             \
       (array)->capacity =                                                      \
           ((array)->capacity == 0) ? ARRAY_INIT_CAP : (array)->capacity * 2;   \
-      (array)->items = MEM_REALLOC(                                            \
+      (array)->items = realloc(                                            \
           (array)->items, (array)->capacity * sizeof(*(array)->items));        \
           assert((array)->items != NULL);                                      \
     }                                                                          \
@@ -29,8 +33,13 @@
   } while (0)
 
 #define array_free(array)                                                      \
-  MEM_FREE((array)->items, (array)->capacity * sizeof(*((array)->items)))
-
+  do {                                                                         \
+    free((array)->items);                                                      \
+    (array)->items = NULL;                                                     \
+    (array)->length = 0;                                                       \
+    (array)->capacity = 0;                                                     \
+  } while (0)
+  
 typedef struct
 {
 	size_t length;
@@ -86,5 +95,3 @@ StringView sv_trim(StringView sv);
 StringView sv_chop_delim(StringView *sv, char delim);
 
 StringView sv_chop_str(StringView *sv, char *str);
-
-#endif // BASIC_H

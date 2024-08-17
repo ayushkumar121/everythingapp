@@ -11,6 +11,7 @@
 
 Env env = {0};
 AppModule module = {0};
+bool app_initialised = false;
 
 double getTime(void)
 {
@@ -109,6 +110,12 @@ double getTime(void)
 		env.height = height;
 	}
 
+	if (!app_initialised)
+	{
+		module.app_init(&env);
+		app_initialised = true;
+	}
+
 	// Updating the actual app
 	module.app_update(&env);
 	self.inputUsed = true;
@@ -158,6 +165,7 @@ double getTime(void)
 			AppStateHandle handle = module.app_pre_reload();
 			load_module(&module, "./everything.dylib");
 			module.app_post_reload(handle);
+            module.app_init(&env);
 		}
 
 		env.key_code = event.keyCode;
@@ -191,8 +199,8 @@ double getTime(void)
 int main(void)
 {
 	load_module(&module, "./everything.dylib");
-	module.app_init();
-
+	module.app_load();
+	
 	@autoreleasepool
 	{
 		NSApplication *application = [NSApplication sharedApplication];

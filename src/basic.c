@@ -3,7 +3,7 @@
 void sb_resize(StringBuilder *sb, size_t new_capacity)
 {
 	sb->capacity = new_capacity;
-	sb->items = MEM_REALLOC(sb->items, sb->capacity + 1);
+	sb->items = realloc(sb->items, sb->capacity + 1);
 }
 
 void sb_free(StringBuilder *sb)

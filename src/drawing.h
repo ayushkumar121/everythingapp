@@ -1,7 +1,7 @@
-#ifndef EVERYTHINGAPP_DRAWING_H
-#define EVERYTHINGAPP_DRAWING_H
+#pragma once
 
 #include "env.h"
+#include "basic.h"
 
 #include <stdint.h>
 #include <stddef.h>
@@ -27,7 +27,7 @@ const static Color WHITE = {.rgba = 0XFFFFFFFF};
 const static Color BLACK = {.rgba = 0XFF000000};
 const static Color GRAY = {.rgba = 0XFF666666};
 
-typedef union __attribute__((packed))
+typedef union
 {
 	struct __attribute__((packed))
 	{
@@ -39,7 +39,7 @@ typedef union __attribute__((packed))
 
 typedef union
 {
-	struct
+	struct __attribute__((packed))
 	{
 		float x;
 		float y;
@@ -56,28 +56,28 @@ typedef struct
 	Color *pixels;
 } Image;
 
+float lerp(float a, float b, float t);
+float clamp(float x, float min, float max);
+bool inside_rect(Point p, Rect r);
+Rect rect_add_point(Rect r, Point p);
+
 Image image_from_env(Env* env);
+Env env_from_image(Image image);
+Env new_env(Env* env, int width, int height);
 
 void blur_image(Image image);
 void fade_image(Image image, float opacity);
 Image scale_image(Image image, float sx, float sy);
 Image duplicate_image(Image image);
 
+Image new_image(int width, int height);
 void load_image(Image *image, const char *filename);
 
-typedef struct
-{
-	Image *image;
-	Rect rect;
-	Rect *crop;
-} ImageArgs;
-
-void draw_image(Image background, ImageArgs *args); // Draws an image on another image
+void draw_image(Image background, Image image, Rect rect, Rect *crop);
 void free_image(Image* image);
-
 void clear_image(Image image, Color color);
 
-typedef union __attribute__((packed))
+typedef union
 {
 	struct __attribute__((packed))
 	{
@@ -89,10 +89,9 @@ typedef union __attribute__((packed))
 	Point points[4];
 } BezierCurve;
 
-void draw_curve(Image image, BezierCurve curve, Color color);
-
 void draw_rect(Image image, Rect rect, Color color);
 void draw_rounded_rect(Image image, Rect rect, Color color, float border_radius);
+void draw_curve(Image image, BezierCurve curve, Color color);
 
 typedef enum
 {
@@ -102,65 +101,11 @@ typedef enum
 
 typedef struct
 {
-	int width;
-	int height;
-	int x_offset;
-	int y_offset;
-	int advance;
-	uint64_t *bitmap;
-} FontBDFGlyph;
-
-typedef struct
-{
-	int size;
-	int x_dpi;
-	int y_dpi;
-	FontBDFGlyph glyphs[128];
-} FontBDF;
-
-typedef struct
-{
 	FontFormat format;
 	void *data;
 } Font;
 
 void load_font(Font *font, const char *filename);
-
-typedef struct
-{
-	Font *font;
-	const char *text;
-	int size;
-	Point position;
-	Color color;
-} TextArgs;
-
-Point measure_text(Font *font, const char* text, int size);
-void draw_text(Image image, TextArgs *args);
+Point measure_text(Font font, const char* text, int size);
+void draw_text(Image image,  Font font, const char *text, int size, Point position, Color text_color);
 void free_font(Font *font);
-
-typedef struct
-{
-	Rect rect;
-	Color background_color;
-	float border_radius;
-} PanelArgs;
-
-bool panel(Env *env, PanelArgs *args);
-
-typedef struct
-{
-	Rect rect;
-	Color background_color;
-	Color foreground_color;
-	Color hover_color;
-	Color active_color;
-	float border_radius;
-	const char *text;
-	Font *font;
-	int font_size;
-} ButtonArgs;
-
-bool button(Env *env, ButtonArgs *args);
-
-#endif // EVERYTHINGAPP_DRAWING_H

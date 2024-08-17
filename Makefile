@@ -1,5 +1,5 @@
 CC=clang
-CFLAGS=-Wall -Wextra -g -Og
+CFLAGS=-Wall -Wextra -g -Og -std=c2x -fsanitize=address
 BUILD_DIR=build
 SRC_DIR=src
 
@@ -29,7 +29,7 @@ endif
 
 .DEFAULT_GOAL := $(DEFAULT_TARGET)
 
-MODULE_SRC_FILES=$(SRC_DIR)/everything.c $(SRC_DIR)/drawing.c $(SRC_DIR)/basic.c
+MODULE_SRC_FILES=$(SRC_DIR)/everything.c $(SRC_DIR)/drawing.c $(SRC_DIR)/views.c $(SRC_DIR)/basic.c
 MAC_SRC_FILES=$(SRC_DIR)/everything_mac.m $(SRC_DIR)/hotreload_posix.c
 LINUX_SRC_FILES=$(SRC_DIR)/everything_wayland.c $(SRC_DIR)/hotreload_posix.c $(SRC_DIR)/xdg-shell-protocol.c
 WIN_SRC_FILES=$(SRC_DIR)/everything_win32.c $(SRC_DIR)/hotreload_win32.c
