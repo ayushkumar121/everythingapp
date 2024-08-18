@@ -7,12 +7,12 @@
 typedef struct View	View;
 typedef ARRAY(View*) Views;
 
-typedef void (*DrawFn)(View* view, Rect rect, Env *env);
+typedef void (*DrawFn)(View* view, Vec4 rect, Env *env);
 
 typedef struct View
 {
-	Rect rect;
-	Point offset;
+	Vec4 rect;
+	Vec2 offset;
 	Views children;
 	DrawFn draw;
 } View;
@@ -33,7 +33,7 @@ typedef struct
 	Axis axis;
 } ScrollView;
 
-ScrollView* new_scroll_view(Rect rect, Axis axis);
+ScrollView* new_scroll_view(Vec4 rect, Axis axis);
 
 typedef struct
 {
@@ -41,7 +41,7 @@ typedef struct
 	Color color;
 } RectView;
 
-RectView* new_rect_view(Rect rect, Color color);
+RectView* new_rect_view(Vec4 rect, Color color);
 
 typedef struct
 {
@@ -52,7 +52,7 @@ typedef struct
 	int text_size;
 } TextView;
 
-TextView* new_text_view(Point pos, Font font, const char *text, Color text_color, int size);
+TextView* new_text_view(Vec2 pos, Font font, const char *text, Color text_color, int size);
 
 typedef struct
 {
@@ -62,4 +62,4 @@ typedef struct
 	float border_radius;
 } PanelView;
 
-PanelView* new_panel_view(Rect rect, Color background_color, Color active_color, float border_radius);
+PanelView* new_panel_view(Vec4 rect, Color background_color, Color active_color, float border_radius);

@@ -29,7 +29,7 @@ void app_load(void)
 void app_init(Env* env)
 {
 	ScrollView* scroll_view = new_scroll_view(
-		(Rect){
+		(Vec4){
 			.x = 200,
 			.y = 200,
 			.w = env->width,
@@ -40,7 +40,7 @@ void app_init(Env* env)
 	for (int i = 0; i < 20; i++)
 	{
 		PanelView* panel_view = new_panel_view(
-			(Rect){
+			(Vec4){
 			.x = 10,
 			.y = i*210+10,
 			.w = 300,
@@ -51,7 +51,7 @@ void app_init(Env* env)
 		8.0f
 		);
 
-		TextView* text = new_text_view((Point){
+		TextView* text = new_text_view((Vec2){
 			.x = 10, .y = 10,
 		}, state->font, i%2==0? "EVEN":"ODD", GREEN, 32);
 

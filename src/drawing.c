@@ -9,6 +9,29 @@
 #define EPSILON 1e-3f;
 #define BORDER_RADIUS_THRESHOLD 10.0f;
 
+Vec4 v4_add_v4(Vec4 a, Vec4 b)
+{
+	a.x += b.x;
+	a.y += b.y;
+	a.w += b.w;
+	a.h += b.h;
+	return a;
+}
+
+Vec4 v4_add_v2(Vec4 a, Vec2 b)
+{
+	a.x += b.x;
+	a.y += b.y;
+	return a;
+}
+
+Vec2 v2_add_v4(Vec2 a, Vec2 b)
+{
+	a.x += b.x;
+	a.y += b.y;
+	return a;
+}
+
 float lerp(float a, float b, float t)
 {
 	return a + (b - a) * t;
@@ -21,16 +44,9 @@ float clamp(float x, float min, float max)
 	return x;
 }
 
-bool inside_rect(Point p, Rect r)
+bool inside_rect(Vec2 p, Vec4 r)
 {
 	return p.x >= r.x && p.x <= (r.x + r.w) && p.y >= r.y && p.y <= (r.y + r.h);
-}
-
-Rect rect_add_point(Rect r, Point p)
-{
-	r.x += p.x;
-	r.y += p.y;
-	return r;
 }
 
 Image image_from_env(Env* env)
@@ -99,9 +115,9 @@ Color mix_color(Color a, Color b, float t)
 	return c;
 }
 
-Point lerp_points(Point a, Point b, float t)
+Vec2 lerp_points(Vec2 a, Vec2 b, float t)
 {
-	Point p = {0};
+	Vec2 p = {0};
 	p.x = lerp(a.x, b.x, t);
 	p.y = lerp(a.y, b.y, t);
 	return p;
@@ -114,7 +130,7 @@ typedef enum
 	INSIDE_BORDER,
 } BorderCheckResult;
 
-BorderCheckResult border_radius_check(Rect rect, int cx, int cy, float r)
+BorderCheckResult border_radius_check(Vec4 rect, int cx, int cy, float r)
 {
 	float r_squared = r * r;
 
@@ -180,7 +196,7 @@ void clear_image(Image image, Color color)
 	}
 }
 
-void draw_rect(Image image, Rect rect, Color color)
+void draw_rect(Image image, Vec4 rect, Color color)
 {
 	for (size_t y = rect.y; y < rect.y + rect.h; ++y)
 	{
@@ -191,7 +207,7 @@ void draw_rect(Image image, Rect rect, Color color)
 	}
 }
 
-void draw_rounded_rect(Image image, Rect rect, Color color, float border_radius)
+void draw_rounded_rect(Image image, Vec4 rect, Color color, float border_radius)
 {
 	for (size_t cy = rect.y; cy <= rect.y + rect.h; ++cy)
 	{
@@ -212,14 +228,14 @@ void draw_curve(Image image, BezierCurve curve, Color color)
 	float t = 0.0f;
 	while (t <= 1.0f)
 	{
-		Point p5 = lerp_points(curve.p1, curve.p2, t);
-		Point p6 = lerp_points(curve.p2, curve.p3, t);
-		Point p7 = lerp_points(curve.p3, curve.p4, t);
+		Vec2 p5 = lerp_points(curve.p1, curve.p2, t);
+		Vec2 p6 = lerp_points(curve.p2, curve.p3, t);
+		Vec2 p7 = lerp_points(curve.p3, curve.p4, t);
 
-		Point p8 = lerp_points(p5, p6, t);
-		Point p9 = lerp_points(p6, p7, t);
+		Vec2 p8 = lerp_points(p5, p6, t);
+		Vec2 p9 = lerp_points(p6, p7, t);
 
-		Point p10 = lerp_points(p8, p9, t);
+		Vec2 p10 = lerp_points(p8, p9, t);
 		put_pixel(image, (int)p10.x, (int)p10.y, color);
 
 		t += EPSILON;
@@ -459,19 +475,19 @@ void load_image(Image *image, const char *filename)
 	}
 }
 
-void draw_image(Image background, Image image, Rect rect, Rect *crop)
+void draw_image(Image background, Image image, Vec4 rect, Vec4 *crop)
 {
 	assert(image.pixels != NULL);
 	assert(background.pixels != NULL);
 
-	Rect crop_rect;
+	Vec4 crop_rect;
 	if (crop != NULL)
 	{
 		crop_rect = *crop;
 	}
 	else
 	{
-		crop_rect = (Rect)
+		crop_rect = (Vec4)
 		{
 			.x = 0, .y = 0, .w = image.width, .h = image.height
 		};
@@ -615,7 +631,7 @@ void load_font(Font *font, const char *filename)
 	}
 }
 
-Point measure_text_bdf(Font font, const char* text, int size)
+Vec2 measure_text_bdf(Font font, const char* text, int size)
 {
 	assert(font.data != NULL);
 
@@ -636,14 +652,14 @@ Point measure_text_bdf(Font font, const char* text, int size)
 		height = fmaxf(height, glyph.height * scaling);
 	}
 
-	return (Point)
+	return (Vec2)
 	{
 		.x=width, .y=height
 	};
 
 }
 
-Point measure_text(Font font, const char* text, int size)
+Vec2 measure_text(Font font, const char* text, int size)
 {
 	switch (font.format)
 	{
@@ -654,13 +670,13 @@ Point measure_text(Font font, const char* text, int size)
 			break;
 	}
 
-	return (Point)
+	return (Vec2)
 	{
 		.x=0, .y=0
 	};
 }
 
-void draw_text_bdf(Image image, Font font, const char *text, int size, Point position, Color text_color)
+void draw_text_bdf(Image image, Font font, const char *text, int size, Vec2 position, Color text_color)
 {
 	assert(font.data != NULL);
 
@@ -720,7 +736,7 @@ void draw_text_bdf(Image image, Font font, const char *text, int size, Point pos
 	}
 }
 
-void draw_text(Image image, Font font, const char *text, int size, Point position, Color text_color)
+void draw_text(Image image, Font font, const char *text, int size, Vec2 position, Color text_color)
 {
 	switch (font.format)
 	{
