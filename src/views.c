@@ -51,17 +51,20 @@ void draw_view(View* view, Env *env)
 	assert(env != NULL);
 
 	Rect rect = rect_add_point(view->rect, view->offset);
+	Env off_canvas = new_env(env, env->width, env->height);
 	if (view->draw != NULL)
 	{
-		view->draw(view, rect, env);
+		view->draw(view, rect, &off_canvas);
 	}
 
 	for (size_t i=0; i < view->children.length; i++)
 	{
 		View* child = view->children.items[i];
 		child->offset = (Point) {.x=rect.x,.y = rect.y};
-		draw_view(child, env);
+		draw_view(child, &off_canvas);
 	}
+	draw_image(image_from_env(env), image_from_env(&off_canvas), rect, &rect);
+	free(off_canvas.buffer);
 }
 
 void destroy_view(View* view)
@@ -84,6 +87,7 @@ void destroy_view(View* view)
 void draw_scroll_view(View* view, Rect rect, Env *env)
 {
 	ScrollView* scroll_view = (ScrollView*) view;
+	Image image = image_from_env(env);
 
 	float content_size = 0.0f;
 	float total_scroll = 0.0f;
@@ -93,18 +97,24 @@ void draw_scroll_view(View* view, Rect rect, Env *env)
 		View* child = scroll_view->base.children.items[i];
 		if (scroll_view->axis == DIRECTION_HORIZONTAL)
 		{
-			content_size = fmaxf(content_size, child->rect.h);
+			content_size = fmaxf(content_size, child->rect.y + child->rect.h);
 			total_scroll += child->rect.w;
 			item_size = fmaxf(item_size, child->rect.w);
 		}
 		else
 		{
-			content_size = fmaxf(content_size, child->rect.w);
+			content_size = fmaxf(content_size, child->rect.x +  child->rect.w);
 			total_scroll += child->rect.h;
 			item_size = fmaxf(item_size, child->rect.h);
 		}
 	}
-	content_size+=10; // Padding
+
+	draw_rect(image, (Rect){
+		.x = rect.x,
+		.y = rect.y,
+		.w = content_size,
+		.h = total_scroll,
+	}, (Color){.rgba = 0xFFAAAAAA});
 
 	Rect scroll_bar;
 	int scroll_bar_button_size;
@@ -154,7 +164,6 @@ void draw_scroll_view(View* view, Rect rect, Env *env)
 		}
 	}
 
-	Image image = image_from_env(env);
 	draw_rect(image, scroll_bar, (Color)
 	{
 		.rgba=0XFFEEEEEE

@@ -22,6 +22,11 @@ const static Color MAGENTA = {.rgba = 0XFFFF00FF};
 const static Color WHITE = {.rgba = 0XFFFFFFFF};
 const static Color BLACK = {.rgba = 0XFF000000};
 const static Color GRAY = {.rgba = 0XFF666666};
+const static Color BLUE = {.rgba = 0XFF0000FF};
+const static Color CYAN = {.rgba = 0XFF00FFFF};
+const static Color ORANGE = {.rgba = 0xFFA500FF};
+const static Color PURPLE = {.rgba = 0xFF00FF00};
+const static Color YELLOW = {.rgba = 0xFFFF00FF};
 
 typedef union
 {

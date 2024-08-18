@@ -41,10 +41,10 @@ void app_init(Env* env)
 	{
 		PanelView* panel_view = new_panel_view(
 			(Rect){
-			.x = 0,
-			.y = i*210,
+			.x = 10,
+			.y = i*210+10,
 			.w = 300,
-			.h = 200
+			.h = 50
 		},
 		(Color){.rgba=0XFFEEEEEE},
 		(Color) {.rgba=0xFF6482AD},
