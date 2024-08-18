@@ -165,7 +165,7 @@ double getTime(void)
 			AppStateHandle handle = module.app_pre_reload();
 			load_module(&module, "./everything.dylib");
 			module.app_post_reload(handle);
-            module.app_init(&env);
+			module.app_init(&env);
 		}
 
 		env.key_code = event.keyCode;
@@ -200,7 +200,7 @@ int main(void)
 {
 	load_module(&module, "./everything.dylib");
 	module.app_load();
-	
+
 	@autoreleasepool
 	{
 		NSApplication *application = [NSApplication sharedApplication];

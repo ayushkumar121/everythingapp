@@ -2,6 +2,9 @@
 #include "basic.h"
 
 #include <math.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 
 #define EPSILON 1e-3f;
 #define BORDER_RADIUS_THRESHOLD 10.0f;
@@ -44,23 +47,12 @@ Image image_from_env(Env* env)
 
 Env env_from_image(Image image)
 {
-	return (Env){
+	return (Env)
+	{
 		.width = image.width,
 		.height = image.height,
 		.buffer = (uint8_t*)image.pixels,
 	};
-}
-
-Env new_env(Env* env, int width, int height)
-{
-	Env new_env = *env;
-	new_env.width = width;
-	new_env.height = height;
-	size_t size = width * height * sizeof(Color);
-	new_env.buffer = (uint8_t*)malloc(size);
-	assert(new_env.buffer != NULL);
-	memset(new_env.buffer, 0, size);
-	return new_env;
 }
 
 Color layer_color(Color bottom, Color top)
@@ -241,7 +233,8 @@ typedef struct __attribute__((packed))
 	uint16_t reserved1;
 	uint16_t reserved2;
 	uint32_t offset;
-} BMPHeader;
+}
+BMPHeader;
 
 typedef struct __attribute__((packed))
 {
@@ -256,14 +249,16 @@ typedef struct __attribute__((packed))
 	int32_t y_pixels_per_meter;
 	uint32_t colors_used;
 	uint32_t colors_important;
-} BMPInfoHeader;
+}
+BMPInfoHeader;
 
 void blur_image(Image image)
 {
 	assert(image.pixels != NULL);
 
 	static int kernel_size = 3;
-	static float kernel[3][3] = {
+	static float kernel[3][3] =
+	{
 		{1.0f/16.0f, 2.0f/16.0f, 1.0f/16.0f},
 		{2.0f/16.0f, 4.0f/16.0f, 2.0f/16.0f},
 		{1.0f/16.0f, 2.0f/16.0f, 1.0f/16.0f},
@@ -295,13 +290,14 @@ void blur_image(Image image)
 			}
 
 			r = clamp(r, 0.0f, 255.0f);
-        	g = clamp(g, 0.0f, 255.0f);
-        	b = clamp(b, 0.0f, 255.0f);
+			g = clamp(g, 0.0f, 255.0f);
+			b = clamp(b, 0.0f, 255.0f);
 
-			put_pixel(image, x, y, (Color){
-				.r=(uint8_t)r, 
-				.g=(uint8_t)g, 
-				.b=(uint8_t)b, 
+			put_pixel(image, x, y, (Color)
+			{
+				.r=(uint8_t)r,
+				.g=(uint8_t)g,
+				.b=(uint8_t)b,
 				.a=(uint8_t)a,
 			});
 		}
@@ -323,10 +319,10 @@ void fade_image(Image image, float opacity)
 	}
 }
 
-Image scale_image(Image image, float sx, float sy) 
+Image scale_image(Image image, float sx, float sy)
 {
 	assert(image.pixels != NULL);
-	
+
 	int scaled_w = (int)((float)image.width * sx);
 	int scaled_h = (int)((float)image.height * sy);
 
@@ -466,24 +462,36 @@ void load_image(Image *image, const char *filename)
 void draw_image(Image background, Image image, Rect rect, Rect *crop)
 {
 	assert(image.pixels != NULL);
+	assert(background.pixels != NULL);
 
-	if (crop == NULL)
+	Rect crop_rect;
+	if (crop != NULL)
 	{
-		crop = &(Rect){.x = 0, .y = 0, .w = image.width, .h = image.height};
+		crop_rect = *crop;
+	}
+	else
+	{
+		crop_rect = (Rect)
+		{
+			.x = 0, .y = 0, .w = image.width, .h = image.height
+		};
 	}
 
-	float sx = crop->w / rect.w;
-	float sy = crop->h / rect.h;
+	const float sx = crop_rect.w / rect.w;
+	const float sy = crop_rect.h / rect.h;
 
 	for (int y = 0; y < rect.h; ++y)
 	{
 		for (int x = 0; x < rect.w; ++x)
 		{
-			int ix = (int)(x * sx + crop->x);
-			int iy = (int)(y * sy + crop->y);
-			int k = iy * image.width + ix;
+			const int ix = (int)(x / sx + crop_rect.x);
+			const int iy = (int)(y / sy + crop_rect.y);
 
-			put_pixel(background, x + rect.x, y + rect.y, image.pixels[k]);
+			if (ix >= 0 && ix < image.width && iy >= 0 && iy < image.height)
+			{
+				int k = iy * image.width + ix;
+				put_pixel(background, x + rect.x, y + rect.y, image.pixels[k]);
+			}
 		}
 	}
 }
@@ -628,7 +636,10 @@ Point measure_text_bdf(Font font, const char* text, int size)
 		height = fmaxf(height, glyph.height * scaling);
 	}
 
-	return (Point){.x=width, .y=height};
+	return (Point)
+	{
+		.x=width, .y=height
+	};
 
 }
 
@@ -636,14 +647,17 @@ Point measure_text(Font font, const char* text, int size)
 {
 	switch (font.format)
 	{
-	case FONT_BDF:
-		return measure_text_bdf(font, text, size);
-	default:
-		fprintf(stderr, "ERROR: Unsupported font format\n");
-		break;
+		case FONT_BDF:
+			return measure_text_bdf(font, text, size);
+		default:
+			fprintf(stderr, "ERROR: Unsupported font format\n");
+			break;
 	}
 
-	return (Point){.x=0, .y=0};
+	return (Point)
+	{
+		.x=0, .y=0
+	};
 }
 
 void draw_text_bdf(Image image, Font font, const char *text, int size, Point position, Color text_color)
@@ -710,12 +724,12 @@ void draw_text(Image image, Font font, const char *text, int size, Point positio
 {
 	switch (font.format)
 	{
-	case FONT_BDF:
-		draw_text_bdf(image, font, text, size, position, text_color);
-		break;
-	default:
-		fprintf(stderr, "ERROR: Unsupported font format\n");
-		break;
+		case FONT_BDF:
+			draw_text_bdf(image, font, text, size, position, text_color);
+			break;
+		default:
+			fprintf(stderr, "ERROR: Unsupported font format\n");
+			break;
 	}
 }
 
@@ -734,11 +748,11 @@ void free_font(Font *font)
 {
 	switch (font->format)
 	{
-	case FONT_BDF:
-		free_font_bdf(font);
-		break;
-	default:
-		fprintf(stderr, "ERROR: Unsupported font format\n");
-		break;
+		case FONT_BDF:
+			free_font_bdf(font);
+			break;
+		default:
+			fprintf(stderr, "ERROR: Unsupported font format\n");
+			break;
 	}
 }

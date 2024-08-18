@@ -1,5 +1,10 @@
 #include "./basic.h"
 
+#include <ctype.h>
+#include <stdlib.h>
+#include <string.h>
+#include <math.h>
+
 void sb_resize(StringBuilder *sb, size_t new_capacity)
 {
 	sb->capacity = new_capacity;

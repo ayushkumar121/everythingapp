@@ -1,14 +1,7 @@
 #pragma once
 
 #include <assert.h>
-#include <ctype.h>
-#include <math.h>
-#include <stdbool.h>
 #include <stddef.h>
-#include <stdint.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
 
 #define ARRAY_INIT_CAP 10
 
@@ -39,7 +32,7 @@
     (array)->length = 0;                                                       \
     (array)->capacity = 0;                                                     \
   } while (0)
-  
+
 typedef struct
 {
 	size_t length;

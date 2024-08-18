@@ -1,11 +1,7 @@
 #pragma once
 
 #include "env.h"
-#include "basic.h"
-
 #include <stdint.h>
-#include <stddef.h>
-#include <stdbool.h>
 
 typedef union __attribute__((packed))
 {
@@ -63,7 +59,6 @@ Rect rect_add_point(Rect r, Point p);
 
 Image image_from_env(Env* env);
 Env env_from_image(Image image);
-Env new_env(Env* env, int width, int height);
 
 void blur_image(Image image);
 void fade_image(Image image, float opacity);

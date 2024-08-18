@@ -28,30 +28,37 @@ void app_load(void)
 
 void app_init(Env* env)
 {
-	ScrollView* scroll = new_scroll_view((Rect){
-		.x = 10,
-		.y = 50,
-		.w = env->width,
-		.h = env->height-50
-	}, DIRECTION_VERTICAL);
+	ScrollView* scroll_view = new_scroll_view(
+		(Rect){
+			.x = 200,
+			.y = 200,
+			.w = env->width,
+			.h = env->height/2
+		},
+	DIRECTION_VERTICAL);
 
 	for (int i = 0; i < 20; i++)
 	{
-		RectView* rect = new_rect_view((Rect){
+		PanelView* panel_view = new_panel_view(
+			(Rect){
 			.x = 0,
-			.y = i*60,
+			.y = i*210,
 			.w = 300,
-			.h = 50
-		}, i%2==0? MAGENTA : GREEN);
+			.h = 200
+		},
+		(Color){.rgba=0XFFEEEEEE},
+		(Color) {.rgba=0xFF6482AD},
+		8.0f
+		);
 
 		TextView* text = new_text_view((Point){
 			.x = 10, .y = 10,
-		}, state->font, i%2==0? "MAGENTA":"GREEN", WHITE, 32);
+		}, state->font, i%2==0? "EVEN":"ODD", GREEN, 32);
 
-		array_append(&rect->base.children, (View*)text);
-		array_append(&scroll->base.children, (View*)rect);
+		array_append(&panel_view->base.children, (View*)text);
+		array_append(&scroll_view->base.children, (View*)panel_view);
 	}
-	state->view = (View*)scroll;
+	state->view = (View*)scroll_view;
 }
 
 void app_update(Env *env)
@@ -64,7 +71,7 @@ void app_update(Env *env)
 // For hot reloading
 AppStateHandle app_pre_reload(void)
 {
-	return (AppStateHandle){
+	return (AppStateHandle) {
 		.state = state,
 		.size = sizeof(AppState)
 	};
