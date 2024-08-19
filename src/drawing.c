@@ -25,7 +25,7 @@ Vec4 v4_add_v2(Vec4 a, Vec2 b)
 	return a;
 }
 
-Vec2 v2_add_v4(Vec2 a, Vec2 b)
+Vec2 v2_add_v2(Vec2 a, Vec2 b)
 {
 	a.x += b.x;
 	a.y += b.y;
@@ -73,15 +73,25 @@ Env env_from_image(Image image)
 
 Color layer_color(Color bottom, Color top)
 {
-	float f = (float) top.a / 255.0f;
-	float r = (float) top.r * f + (float) bottom.r * (1.0f - f);
-	float g = (float) top.g * f + (float) bottom.g * (1.0f - f);
-	float b = (float) top.b * f + (float) bottom.b * (1.0f - f);
+	float top_alpha = (float) top.a / 255.0f;
+    float bottom_alpha = (float) bottom.a / 255.0f;
+    float out_alpha = top_alpha + bottom_alpha * (1.0f - top_alpha);
+    if (out_alpha == 0)
+    {
+        return (Color) { .r = 0, .g = 0, .b = 0, .a = 0 };
+    }
 
-	return (Color)
-	{
-		.r=(uint8_t) r, .g=(uint8_t) g, .b=(uint8_t) b, .a=top.a
-	};
+    float r = ((float) top.r * top_alpha + (float) bottom.r * bottom_alpha * (1.0f - top_alpha)) / out_alpha;
+    float g = ((float) top.g * top_alpha + (float) bottom.g * bottom_alpha * (1.0f - top_alpha)) / out_alpha;
+    float b = ((float) top.b * top_alpha + (float) bottom.b * bottom_alpha * (1.0f - top_alpha)) / out_alpha;
+
+    return (Color)
+    {
+        .r = (uint8_t) r,
+        .g = (uint8_t) g,
+        .b = (uint8_t) b,
+        .a = (uint8_t) (out_alpha * 255.0f)
+    };
 }
 
 Color get_pixel(Image image, int x, int y)
@@ -98,7 +108,6 @@ void put_pixel(Image image, int x, int y, Color color)
 {
 	assert(image.pixels != NULL);
 
-	if (color.a == 0) return;
 	if (x < 0 || x >= image.width) return;
 	if (y < 0 || y >= image.height) return;
 
@@ -500,8 +509,8 @@ void draw_image(Image background, Image image, Vec4 rect, Vec4 *crop)
 	{
 		for (int x = 0; x < rect.w; ++x)
 		{
-			const int ix = (int)(x / sx + crop_rect.x);
-			const int iy = (int)(y / sy + crop_rect.y);
+			const int ix = (int)(x * sx + crop_rect.x);
+			const int iy = (int)(y * sy + crop_rect.y);
 
 			if (ix >= 0 && ix < image.width && iy >= 0 && iy < image.height)
 			{

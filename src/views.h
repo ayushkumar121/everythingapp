@@ -13,9 +13,15 @@ typedef struct View
 {
 	Vec4 rect;
 	Vec2 offset;
+	Vec4* padding;
 	Views children;
 	DrawFn draw;
 } View;
+
+typedef struct
+{
+	Vec4 rect;
+} ViewArgs;
 
 void draw_view(View* view, Env *env);
 void destroy_view(View* view);
@@ -31,9 +37,16 @@ typedef struct
 	View base;
 	float scroll;
 	Axis axis;
+	bool is_dragging;
 } ScrollView;
 
-ScrollView* new_scroll_view(Vec4 rect, Axis axis);
+typedef struct
+{
+	ViewArgs base;
+	Axis axis;
+} ScrollViewArgs;
+
+ScrollView* new_scroll_view(ScrollViewArgs* args);
 
 typedef struct
 {
@@ -41,7 +54,13 @@ typedef struct
 	Color color;
 } RectView;
 
-RectView* new_rect_view(Vec4 rect, Color color);
+typedef struct
+{
+	ViewArgs base;
+	Color color;
+} RectViewArgs;
+
+RectView* new_rect_view(RectViewArgs* args);
 
 typedef struct
 {
@@ -52,7 +71,17 @@ typedef struct
 	int text_size;
 } TextView;
 
-TextView* new_text_view(Vec2 pos, Font font, const char *text, Color text_color, int size);
+typedef struct
+{
+	ViewArgs base;
+	Color color;
+	Font font;
+	const char *text;
+	int text_size;
+	Color text_color;
+} TextViewArgs;
+
+TextView* new_text_view(TextViewArgs* args);
 
 typedef struct
 {
@@ -62,4 +91,12 @@ typedef struct
 	float border_radius;
 } PanelView;
 
-PanelView* new_panel_view(Vec4 rect, Color background_color, Color active_color, float border_radius);
+typedef struct
+{
+	ViewArgs base;
+	Color background_color;
+	Color active_color;
+	float border_radius;
+} PanelViewArgs;
+
+PanelView* new_panel_view(PanelViewArgs* args);

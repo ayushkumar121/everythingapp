@@ -2,25 +2,12 @@
 #include "views.h"
 
 #include <math.h>
-#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
-void dump_image(Image image, const char *filename)
+void new_view(View* view, const ViewArgs* args)
 {
-	FILE *file = fopen(filename, "wb");
-	if (!file) return;
-	fprintf(file, "P6\n%d %d\n255\n", image.width, image.height);
-	for (int y = 0; y < image.height; y++)
-	{
-		for (int x = 0; x < image.width; x++)
-		{
-			Color color = image.pixels[y * image.width + x];
-			char* channels = (char*)&color;
-			fwrite(channels, 1, 3, file);
-		}
-	}
-	fclose(file);
+	view->rect = args->rect;
 }
 
 Vec2 mouse_position(Env* env)
@@ -80,6 +67,7 @@ void destroy_view(View* view)
 	}
 
 	free(view);
+	view = NULL;
 }
 
 #define SCROLL_BAR_THICKNESS 10
@@ -89,7 +77,6 @@ void draw_scroll_view(View* view, Vec4 rect, Env *env)
 	ScrollView* scroll_view = (ScrollView*) view;
 	Image image = image_from_env(env);
 
-	float content_size = 0.0f;
 	float total_scroll = 0.0f;
 	float item_size = 0.0f;
 	for (size_t i = 0; i < scroll_view->base.children.length; i++)
@@ -97,31 +84,25 @@ void draw_scroll_view(View* view, Vec4 rect, Env *env)
 		View* child = scroll_view->base.children.items[i];
 		if (scroll_view->axis == DIRECTION_HORIZONTAL)
 		{
-			content_size = fmaxf(content_size, child->rect.y + child->rect.h);
 			total_scroll += child->rect.w;
 			item_size = fmaxf(item_size, child->rect.w);
 		}
 		else
 		{
-			content_size = fmaxf(content_size, child->rect.x +  child->rect.w);
 			total_scroll += child->rect.h;
 			item_size = fmaxf(item_size, child->rect.h);
 		}
 	}
 
-	draw_rect(image, (Vec4){
-		.x = rect.x,
-		.y = rect.y,
-		.w = content_size,
-		.h = total_scroll,
-	}, (Color){.rgba = 0xFFAAAAAA});
+	draw_rect(image, rect, (Color){.rgba = 0X50AAAAAA});
+	blur_image(image);
 
 	Vec4 scroll_bar;
 	int scroll_bar_button_size;
 	if (scroll_view->axis == DIRECTION_HORIZONTAL)
 	{
 		scroll_bar.x = rect.x;
-		scroll_bar.y = rect.y + content_size;
+		scroll_bar.y = rect.y + rect.h - SCROLL_BAR_THICKNESS;
 		scroll_bar.w = rect.w;
 		scroll_bar.h = SCROLL_BAR_THICKNESS;
 
@@ -129,7 +110,7 @@ void draw_scroll_view(View* view, Vec4 rect, Env *env)
 	}
 	else
 	{
-		scroll_bar.x = rect.x + content_size;
+		scroll_bar.x = rect.x + rect.w - SCROLL_BAR_THICKNESS;
 		scroll_bar.y = rect.y;
 		scroll_bar.w = SCROLL_BAR_THICKNESS;
 		scroll_bar.h = rect.h;
@@ -137,14 +118,32 @@ void draw_scroll_view(View* view, Vec4 rect, Env *env)
 		scroll_bar_button_size = scroll_bar.h / view->children.length;
 	}
 
-	Vec2 mouse_pos = mouse_position(env);
-	bool is_mouse_over = inside_rect(mouse_pos, scroll_bar);
+	draw_rect(image, scroll_bar, (Color){.rgba=0X60EEEEEE});
 
-	if (is_mouse_over && env->mouse_left_down)
+	Vec4 scroll_bar_button;
+	if (scroll_view->axis == DIRECTION_HORIZONTAL)
+	{
+		scroll_bar_button.x = rect.x + fminf(scroll_view->scroll*scroll_bar.w, rect.w - scroll_bar_button_size);
+		scroll_bar_button.y = rect.y + rect.h - SCROLL_BAR_THICKNESS;
+		scroll_bar_button.w = scroll_bar_button_size;
+		scroll_bar_button.h = SCROLL_BAR_THICKNESS;
+	}
+	else
+	{
+		scroll_bar_button.x = rect.x + rect.w - SCROLL_BAR_THICKNESS;
+		scroll_bar_button.y = rect.y + fminf(scroll_view->scroll*scroll_bar.h, rect.h - scroll_bar_button_size);
+		scroll_bar_button.w = SCROLL_BAR_THICKNESS;
+		scroll_bar_button.h = scroll_bar_button_size;
+	}
+
+	Color scroll_bar_color = RED;
+	Vec2 mouse_pos = mouse_position(env);
+
+	if (inside_rect(mouse_pos, scroll_bar) && env->mouse_left_down)
 	{
 		if (scroll_view->axis == DIRECTION_HORIZONTAL)
 		{
-			float scroll = (env->mouse_x - rect.x) / scroll_bar.w;
+			float scroll = (env->mouse_x - rect.x - scroll_bar_button_size) / scroll_bar.w;
 			for (size_t i = 0; i < scroll_view->base.children.length; i++)
 			{
 				View* child = scroll_view->base.children.items[i];
@@ -154,7 +153,7 @@ void draw_scroll_view(View* view, Vec4 rect, Env *env)
 		}
 		else
 		{
-			float scroll = (env->mouse_y - rect.y) / scroll_bar.h;
+			float scroll = (env->mouse_y - rect.y - scroll_bar_button_size) / scroll_bar.h;
 			for (size_t i = 0; i < scroll_view->base.children.length; i++)
 			{
 				View* child = scroll_view->base.children.items[i];
@@ -164,41 +163,18 @@ void draw_scroll_view(View* view, Vec4 rect, Env *env)
 		}
 	}
 
-	draw_rect(image, scroll_bar, (Color)
-	{
-		.rgba=0XFFEEEEEE
-	});
-
-	Vec4 scroll_bar_button;
-	if (scroll_view->axis == DIRECTION_HORIZONTAL)
-	{
-		scroll_bar_button.x = rect.x + fminf(scroll_view->scroll*scroll_bar.w, rect.w - scroll_bar_button_size);
-		scroll_bar_button.y = rect.y + content_size;
-		scroll_bar_button.w = scroll_bar_button_size;
-		scroll_bar_button.h = SCROLL_BAR_THICKNESS;
-	}
-	else
-	{
-		scroll_bar_button.x = rect.x + content_size;
-		scroll_bar_button.y = rect.y + fminf(scroll_view->scroll*scroll_bar.h, rect.h - scroll_bar_button_size);
-		scroll_bar_button.w = SCROLL_BAR_THICKNESS;
-		scroll_bar_button.h = scroll_bar_button_size;
-	}
-
-	draw_rect(image, scroll_bar_button, (Color)
-	{
-		.rgba=0XFF686D76
-	});
+	draw_rect(image, scroll_bar_button, scroll_bar_color);
 }
 
-ScrollView* new_scroll_view(Vec4 rect, Axis axis)
+ScrollView* new_scroll_view(ScrollViewArgs* args)
 {
-	ScrollView* scroll_view = malloc(sizeof(ScrollView));
-	memset(scroll_view, 0, sizeof(ScrollView));
-	scroll_view->base.rect = rect;
-	scroll_view->base.draw = draw_scroll_view;
-	scroll_view->axis = axis;
-	return scroll_view;
+	assert(args != NULL);
+	ScrollView* view = malloc(sizeof(ScrollView));
+	memset(view, 0, sizeof(ScrollView));
+	new_view((View*)view, (ViewArgs*)args);
+	view->base.draw = draw_scroll_view;
+	view->axis = args->axis;
+	return view;
 }
 
 void draw_rectangle_view(View* view, Vec4 rect, Env *env)
@@ -208,14 +184,15 @@ void draw_rectangle_view(View* view, Vec4 rect, Env *env)
 	draw_rect(image, rect, rect_view->color);
 }
 
-RectView* new_rect_view(Vec4 rect, Color color)
+RectView* new_rect_view(RectViewArgs* args)
 {
-	RectView* rect_view = malloc(sizeof(RectView));
-	memset(rect_view, 0, sizeof(RectView));
-	rect_view->base.rect = rect;
-	rect_view->color = color;
-	rect_view->base.draw = draw_rectangle_view;
-	return rect_view;
+	assert(args != NULL);
+	RectView* view = malloc(sizeof(RectView));
+	memset(view, 0, sizeof(RectView));
+	new_view((View*)view, (ViewArgs*)args);
+	view->base.draw = draw_rectangle_view;
+	view->color = args->color;
+	return view;
 }
 
 void draw_text_view(View* view, Vec4 rect, Env *env)
@@ -237,25 +214,18 @@ void draw_text_view(View* view, Vec4 rect, Env *env)
 
 }
 
-TextView* new_text_view(Vec2 pos, Font font, const char *text, Color text_color, int size)
+TextView* new_text_view(TextViewArgs* args)
 {
-	TextView* text_view = malloc(sizeof(TextView));
-	memset(text_view, 0, sizeof(TextView));
-	Vec2 text_size = measure_text(font, text, size);
-	text_view->base.rect = (Vec4)
-	{
-		.x = pos.x,
-		.y = pos.y,
-		.w = text_size.x,
-		.h = text_size.y,
-	};
-	text_view->font = font;
-	text_view->text = text;
-	text_view->text_size = size;
-	text_view->text_color = text_color;
-	text_view->base.draw = draw_text_view;
-
-	return text_view;
+	assert(args != NULL);
+	TextView* view = malloc(sizeof(TextView));
+	memset(view, 0, sizeof(TextView));
+	new_view((View*)view, (ViewArgs*)args);
+	view->base.draw = draw_text_view;
+	view->font = args->font;
+	view->text = args->text;
+	view->text_size = args->text_size;
+	view->text_color = args->text_color;
+	return view;
 }
 
 void draw_panel_view(View* view, Vec4 rect, Env *env)
@@ -277,14 +247,15 @@ void draw_panel_view(View* view, Vec4 rect, Env *env)
 	draw_rounded_rect(image, rect, color, panel_view->border_radius);
 }
 
-PanelView* new_panel_view(Vec4 rect, Color background_color, Color active_color, float border_radius)
+PanelView* new_panel_view(PanelViewArgs* args)
 {
-	PanelView* panel_view = malloc(sizeof(PanelView));
-	memset(panel_view, 0, sizeof(PanelView));
-	panel_view->base.rect = rect;
-	panel_view->background_color = background_color;
-	panel_view->active_color = active_color;
-	panel_view->border_radius = border_radius;
-	panel_view->base.draw = draw_panel_view;
-	return panel_view;
+	assert(args != NULL);
+	PanelView* view = malloc(sizeof(PanelView));
+	memset(view, 0, sizeof(PanelView));
+	new_view((View*)view, (ViewArgs*)args);
+	view->base.draw = draw_panel_view;
+	view->background_color = args->background_color;
+	view->active_color = args->active_color;
+	view->border_radius = args->border_radius;
+	return view;
 }

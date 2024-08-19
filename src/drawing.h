@@ -57,7 +57,7 @@ typedef union
 	float xyzw[4];
 } Vec4;
 
-Vec4 v4_add_v4(Vec4 a, Vec2 b);
+Vec4 v4_add_v4(Vec4 a, Vec4 b);
 Vec4 v4_add_v2(Vec4 a, Vec2 b);
 Vec2 v2_add_v2(Vec2 a, Vec2 b);
 
