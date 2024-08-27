@@ -109,6 +109,10 @@ void compile_library(void)
         array_append(&cmd, "/nologo");
         array_append(&cmd, "/LD");
         array_append(&cmd, "/Zi");
+        for (size_t i = 0; i < src_files_count; i++)
+        {
+            array_append(&cmd, src_files[i]);
+        }
         array_append(&cmd, "/Fe:");
         array_append(&cmd, lib_name);
     #else
@@ -125,11 +129,12 @@ void compile_library(void)
         array_append(&cmd, "-fPIC");
     #endif
         array_append(&cmd, "-o");
-        array_append(&cmd, lib_name);        
+        array_append(&cmd, lib_name);
+        for (size_t i = 0; i < src_files; i++)
+        {
+            array_append(&cmd, src_files[i]);
+        }
     #endif
-        array_append(&cmd, "src/everything.c");
-        array_append(&cmd, "src/drawing.c");
-        array_append(&cmd, "src/views.c");
 
         bool success = cmd_run_sync(&cmd);
         array_free(&cmd);
@@ -176,14 +181,14 @@ void compile_executable(void)
         array_append(&cmd, "cl.exe");
         array_append(&cmd, "/nologo");
         array_append(&cmd, "/Zi");
-        array_append(&cmd, "/Fe:");
-        array_append(&cmd, exe_name);
         for (int i = 0; i < src_files_count; i++)
         {
             array_append(&cmd, src_files[i]);
         }
         array_append(&cmd, "User32.lib");
         array_append(&cmd, "Gdi32.lib");
+        array_append(&cmd, "/Fe:");
+        array_append(&cmd, exe_name);
     #else
         array_append(&cmd, "cc");
         array_append(&cmd, "-Wall");
