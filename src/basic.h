@@ -13,6 +13,9 @@
 #ifdef _WIN32
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
+#else
+#include <unistd.h>
+#include <sys/stat.h>
 #endif
 
 #define unused(x) ((void)(x))
@@ -138,7 +141,7 @@ Process cmd_run_async(Cmd *cmd);
 bool cmd_run_sync(Cmd *cmd);
 
 bool file_rename(char* old_path, char* new_path);
-bool needs_rebuild(char* binary_path, const char** src_files, size_t src_files_len);
+bool needs_rebuild(char* binary_path, char** src_files, size_t src_files_len);
 
 #ifdef BASIC_IMPLEMENTATION
 
@@ -392,8 +395,10 @@ Process cmd_run_async(Cmd *cmd)
 	StringBuilder sb = {0};
 	cmd_to_str(cmd, &sb);
 	sb_append_null(&sb);
-
+	
 	fprintf(stderr, "INFO: Running command: %s\n", sb.items);
+	
+	sb_free(&sb);
 
 #ifdef _WIN32
     STARTUPINFO siStartInfo;
@@ -409,7 +414,6 @@ Process cmd_run_async(Cmd *cmd)
     ZeroMemory(&piProcInfo, sizeof(PROCESS_INFORMATION));
 
 	BOOL bSuccess = CreateProcessA(NULL, sb.items, NULL, NULL, TRUE, 0, NULL, NULL, &siStartInfo, &piProcInfo);
-	sb_free(&sb);
 
 	if (!bSuccess)
 		return INVALID_PROCESS;
@@ -427,11 +431,9 @@ Process cmd_run_async(Cmd *cmd)
 	}
 	else if (proc < 0)
 	{
-		sb_free(&sb);
 		return INVALID_PROCESS;
 	}
 
-	sb_free(&sb);
 	return proc;
 #endif
 }
@@ -489,7 +491,7 @@ int64_t get_file_mod_time(const char *file_path)
 #endif
 }
 
-bool needs_rebuild(char* binary_path, const char** src_files, size_t src_files_len)
+bool needs_rebuild(char* binary_path, char** src_files, size_t src_files_len)
 {
 	int out_time = get_file_mod_time(binary_path);
 	if (out_time < 0)

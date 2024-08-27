@@ -32,7 +32,7 @@ void compile_self(int argc, char **argv)
 
         if (!file_rename(binary_path, sb.items))
         {
-            fprintf(stderr, "ERROR: Failed to rename old binary %lu\n", GetLastError());
+            fprintf(stderr, "ERROR: Failed to rename old binary\n");
             exit(1);
         }
         sb_free(&sb);
@@ -42,12 +42,17 @@ void compile_self(int argc, char **argv)
         #ifdef _WIN32
             array_append(&cmd, "cl.exe");
             array_append(&cmd, "/nologo");
+            array_append(&cmd, "/Zi");
             array_append(&cmd, source_path);
             array_append(&cmd, "/Fe:");
             array_append(&cmd, binary_path);
         #else
             array_append(&cmd, "cc");
-            array_append(&cmd, "-Wall -Wextra -g -Og");
+            array_append(&cmd, "-Wall");
+            array_append(&cmd, "-Wextra");
+            array_append(&cmd, "-Wpedantic");
+            array_append(&cmd, "-g");
+            array_append(&cmd, "-Og");
             array_append(&cmd, "-o");
             array_append(&cmd, binary_path);
             array_append(&cmd, source_path);
@@ -77,7 +82,7 @@ void compile_self(int argc, char **argv)
     }
 }
 
-void compile_library()
+void compile_library(void)
 {
     char* src_files[] = {
         "src/everything.c",
@@ -104,19 +109,25 @@ void compile_library()
         array_append(&cmd, "/nologo");
         array_append(&cmd, "/LD");
         array_append(&cmd, "/Zi");
-        array_append(&cmd, "src/everything.c");
-        array_append(&cmd, "src/drawing.c");
-        array_append(&cmd, "src/views.c");
     #else
         array_append(&cmd, "cc");
-        array_append(&cmd, "-Wall -Wextra -g -Og");
-        array_append(&cmd, "-shared -fPIC");
+        array_append(&cmd, "-Wall");
+        array_append(&cmd, "-Wextra");
+        array_append(&cmd, "-Wpedantic");
+        array_append(&cmd, "-g");
+        array_append(&cmd, "-Og");
+    #ifdef __APPLE__
+        array_append(&cmd, "-dynamiclib");
+    #else
+        array_append(&cmd, "-shared");
+        array_append(&cmd, "-fPIC");
+    #endif
         array_append(&cmd, "-o");
         array_append(&cmd, lib_name);        
+    #endif
         array_append(&cmd, "src/everything.c");
         array_append(&cmd, "src/drawing.c");
         array_append(&cmd, "src/views.c");
-    #endif
 
         bool success = cmd_run_sync(&cmd);
         array_free(&cmd);
@@ -129,7 +140,7 @@ void compile_library()
     }
 }
 
-void compile_executable()
+void compile_executable(void)
 {
 #ifdef _WIN32
     char* src_files[] = {
@@ -141,11 +152,11 @@ void compile_executable()
 #endif
 #ifdef __APPLE__
     char* src_files[] = {
-        "src/everything_mac.c",
+        "src/everything_mac.m",
         "src/hotreload.c",
     };
     int src_files_count = countof(src_files);
-    char* exe_name = "everything_mac";
+    char* exe_name = "everything";
 #endif
 #ifdef __linux__
     char* src_files[] = {
@@ -153,7 +164,7 @@ void compile_executable()
         "src/hotreload.c",
     };
     int src_files_count = countof(src_files);
-    char* exe_name = "everything_wayland";
+    char* exe_name = "everything";
 #endif
 
     if (needs_rebuild(exe_name, src_files, src_files_count))
@@ -173,7 +184,10 @@ void compile_executable()
         array_append(&cmd, "Gdi32.lib");
     #else
         array_append(&cmd, "cc");
-        array_append(&cmd, "-Wall -Wextra -g -Og");
+        array_append(&cmd, "-Wall");
+        array_append(&cmd, "-Wextra");
+        array_append(&cmd, "-g");
+        array_append(&cmd, "-Og");
         array_append(&cmd, "-o");
         array_append(&cmd, "everything");
         for (int i = 0; i < src_files_count; i++)
