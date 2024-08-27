@@ -6,8 +6,8 @@
 #include <stdlib.h>
 #include <string.h>
 
-#define EPSILON 1e-3f;
-#define BORDER_RADIUS_THRESHOLD 10.0f;
+#define EPSILON 1e-3f
+#define BORDER_RADIUS_THRESHOLD 10.0f
 
 Vec4 v4_add_v4(Vec4 a, Vec4 b)
 {
@@ -32,12 +32,12 @@ Vec2 v2_add_v2(Vec2 a, Vec2 b)
 	return a;
 }
 
-float lerp(float a, float b, float t)
+inline float lerp(float a, float b, float t)
 {
 	return a + (b - a) * t;
 }
 
-float clamp(float x, float min, float max)
+inline float clamp(float x, float min, float max)
 {
 	if (x < min) return min;
 	if (x > max) return max;
@@ -46,7 +46,7 @@ float clamp(float x, float min, float max)
 
 bool inside_rect(Vec2 p, Vec4 r)
 {
-	return p.x >= r.x && p.x <= (r.x + r.w) && p.y >= r.y && p.y <= (r.y + r.h);
+    return (p.x >= r.x) && (p.x <= (r.x + r.w)) && (p.y >= r.y) && (p.y <= (r.y + r.h));
 }
 
 Image image_from_env(Env* env)
@@ -139,10 +139,8 @@ typedef enum
 	INSIDE_BORDER,
 } BorderCheckResult;
 
-BorderCheckResult border_radius_check(Vec4 rect, int cx, int cy, float r)
+BorderCheckResult border_radius_check(Vec4 rect, int cx, int cy, float r, float r_squared)
 {
-	float r_squared = r * r;
-
 	bool inside_border = false;
 	bool on_border = false;
 
@@ -200,7 +198,7 @@ void clear_image(Image image, Color color)
 	{
 		for (int x = 0; x < image.width; ++x)
 		{
-			put_pixel(image, x, y, color);
+			image.pixels[y * image.width + x] = color;
 		}
 	}
 }
@@ -218,12 +216,13 @@ void draw_rect(Image image, Vec4 rect, Color color)
 
 void draw_rounded_rect(Image image, Vec4 rect, Color color, float border_radius)
 {
+	float r_squared = border_radius * border_radius;
+
 	for (size_t cy = rect.y; cy <= rect.y + rect.h; ++cy)
 	{
 		for (size_t cx = rect.x; cx <= rect.x + rect.w; ++cx)
 		{
-			BorderCheckResult result = border_radius_check(rect, cx, cy, border_radius);
-
+			BorderCheckResult result = border_radius_check(rect, cx, cy, border_radius, r_squared);
 			if (result != OUTSIDE_BORDER)
 			{
 				put_pixel(image, cx, cy, color);
