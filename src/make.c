@@ -130,7 +130,7 @@ void compile_library(void)
     #endif
         array_append(&cmd, "-o");
         array_append(&cmd, lib_name);
-        for (size_t i = 0; i < src_files; i++)
+        for (int i = 0; i < src_files_count; i++)
         {
             array_append(&cmd, src_files[i]);
         }
