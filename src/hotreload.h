@@ -3,6 +3,7 @@
 #include "env.h"
 
 #include <stdint.h>
+#include <windows.h>
 
 typedef struct
 {
@@ -20,7 +21,11 @@ typedef struct
 	AppStateHandle (*app_pre_reload)(void);
 	void (*app_post_reload)(AppStateHandle);
 
+#ifdef _WIN32
+	HMODULE handle;
+#else
 	void* handle;
+#endif
 } AppModule;
 
 void load_module(AppModule *module, char* file_path);

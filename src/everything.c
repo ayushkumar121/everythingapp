@@ -77,7 +77,7 @@ void app_init(Env* env)
 			},
 			.font = state->font,
 			.text = i%2 == 0? "ODD" : "EVEN",
-			.text_color = BLACK,
+			.text_color = COLOR_BLACK,
 			.text_size = 32,
 		});
 
@@ -97,7 +97,7 @@ void app_update(Env *env)
 	}
 
 	Image image = image_from_env(env);
-	clear_image(image, WHITE);
+	clear_image(image, COLOR_WHITE);
 	draw_image(image, state->background_image, (Vec4){
 		.x = 0,
 		.y = 0,
@@ -108,7 +108,7 @@ void app_update(Env *env)
 
 	char fps[32];
 	snprintf(fps, 32, "FPS: %.2f", 1/env->delta_time);
-	draw_text(image, state->font, fps, 32, (Vec2){.x = env->width-200, .y = 50}, GREEN);
+	draw_text(image, state->font, fps, 32, (Vec2){.x = env->width-200, .y = 50}, COLOR_GREEN);
 }
 
 // For hot reloading

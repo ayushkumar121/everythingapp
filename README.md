@@ -15,3 +15,23 @@ My Attempt at a life organiser app
 
 - views.c
     Retained mode UI functions
+
+## Building
+
+This project includes a custom build system written in C. 
+To bootstrap the build system, use a standard C compiler. 
+Once bootstrapped, you can invoke the build system directly.
+
+After the initial build, the build system can rebuild itself if necessary.
+
+For Linux and Macos
+```shell
+$ cc -o make src/make.c # Only required for bootstraping
+$ ./make
+```
+
+For Windows
+```shell
+$ cl.exe src/make.c # Only required for bootstraping
+$ .\make.exe
+```

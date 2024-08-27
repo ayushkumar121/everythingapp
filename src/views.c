@@ -136,7 +136,7 @@ void draw_scroll_view(View* view, Vec4 rect, Env *env)
 		scroll_bar_button.h = scroll_bar_button_size;
 	}
 
-	Color scroll_bar_color = RED;
+	Color scroll_bar_color = COLOR_RED;
 	Vec2 mouse_pos = mouse_position(env);
 
 	if (inside_rect(mouse_pos, scroll_bar) && env->mouse_left_down)

@@ -98,8 +98,8 @@ Color get_pixel(Image image, int x, int y)
 {
 	assert(image.pixels != NULL);
 
-	if (x < 0 || x >= image.width) return TRANSPARENT;
-	if (y < 0 || y >= image.height) return TRANSPARENT;
+	if (x < 0 || x >= image.width) return COLOR_TRANSPARENT;
+	if (y < 0 || y >= image.height) return COLOR_TRANSPARENT;
 
 	return image.pixels[y * image.width + x];
 }
@@ -251,17 +251,17 @@ void draw_curve(Image image, BezierCurve curve, Color color)
 	}
 }
 
-typedef struct __attribute__((packed))
+PACK(typedef struct
 {
 	uint16_t type;
 	uint32_t size;
 	uint16_t reserved1;
 	uint16_t reserved2;
 	uint32_t offset;
-}
+})
 BMPHeader;
 
-typedef struct __attribute__((packed))
+PACK(typedef struct
 {
 	uint32_t size;
 	int32_t width;
@@ -274,7 +274,7 @@ typedef struct __attribute__((packed))
 	int32_t y_pixels_per_meter;
 	uint32_t colors_used;
 	uint32_t colors_important;
-}
+})
 BMPInfoHeader;
 
 void blur_image(Image image)

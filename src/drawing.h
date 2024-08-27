@@ -1,59 +1,60 @@
 #pragma once
 
 #include "env.h"
+#include "basic.h"
 #include <stdint.h>
 
-typedef union __attribute__((packed))
+typedef union
 {
-	struct __attribute__((packed))
+	PACK(struct
 	{
 		uint8_t r;
 		uint8_t g;
 		uint8_t b;
 		uint8_t a;
-	};
+	});
 	uint32_t rgba;
 } Color;
 
-const static Color TRANSPARENT = {.rgba = 0X0};
-const static Color RED = {.rgba = 0XFF0000FF};
-const static Color GREEN = {.rgba = 0XFF00FF00};
-const static Color MAGENTA = {.rgba = 0XFFFF00FF};
-const static Color WHITE = {.rgba = 0XFFFFFFFF};
-const static Color BLACK = {.rgba = 0XFF000000};
-const static Color GRAY = {.rgba = 0XFF666666};
-const static Color BLUE = {.rgba = 0XFF0000FF};
-const static Color CYAN = {.rgba = 0XFF00FFFF};
-const static Color ORANGE = {.rgba = 0xFFA500FF};
-const static Color PURPLE = {.rgba = 0xFF00FF00};
-const static Color YELLOW = {.rgba = 0xFFFF00FF};
+#define COLOR_TRANSPARENT  (Color){.rgba = 0X0}
+#define COLOR_RED  (Color){.rgba = 0XFF0000FF}
+#define COLOR_GREEN  (Color){.rgba = 0XFF00FF00}
+#define COLOR_MAGENTA  (Color){.rgba = 0XFFFF00FF}
+#define COLOR_WHITE  (Color){.rgba = 0XFFFFFFFF}
+#define COLOR_BLACK  (Color){.rgba = 0XFF000000}
+#define COLOR_GRAY  (Color){.rgba = 0XFF666666}
+#define COLOR_BLUE  (Color){.rgba = 0XFF0000FF}
+#define COLOR_CYAN  (Color){.rgba = 0XFF00FFFF}
+#define COLOR_ORANGE  (Color){.rgba = 0xFFA500FF}
+#define COLOR_PURPLE  (Color){.rgba = 0xFF00FF00}
+#define COLOR_YELLOW  (Color){.rgba = 0xFFFF00FF}
 
 typedef union
 {
-	struct __attribute__((packed))
+	PACK(struct
 	{
 		float x;
 		float y;
-	};
+	});
 	float xy[2];
 } Vec2;
 
 typedef union
 {
-	struct __attribute__((packed))
+	PACK(struct
 	{
 		float x;
 		float y;
 		float w;
 		float h;
-	};
-	struct __attribute__((packed))
+	});
+	PACK(struct
 	{
 		float left;
 		float top;
 		float right;
 		float bottom;
-	};
+	});
 	float xyzw[4];
 } Vec4;
 
@@ -89,13 +90,13 @@ void clear_image(Image image, Color color);
 
 typedef union
 {
-	struct __attribute__((packed))
+	PACK(struct
 	{
 		Vec2 p1;
 		Vec2 p2;
 		Vec2 p3;
 		Vec2 p4;
-	};
+	});
 	Vec2 points[4];
 } BezierCurve;
 
