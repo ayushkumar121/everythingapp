@@ -95,7 +95,6 @@ void draw_scroll_view(View* view, Vec4 rect, Env *env)
 	}
 
 	draw_rect(image, rect, (Color){.rgba = 0X50AAAAAA});
-	blur_image(image);
 
 	Vec4 scroll_bar;
 	int scroll_bar_button_size;
@@ -123,7 +122,7 @@ void draw_scroll_view(View* view, Vec4 rect, Env *env)
 	Vec4 scroll_bar_button;
 	if (scroll_view->axis == DIRECTION_HORIZONTAL)
 	{
-		scroll_bar_button.x = rect.x + fminf(scroll_view->scroll*scroll_bar.w, rect.w - scroll_bar_button_size);
+		scroll_bar_button.x = rect.x + clamp(scroll_view->scroll*scroll_bar.w, 0, rect.w - scroll_bar_button_size);
 		scroll_bar_button.y = rect.y + rect.h - SCROLL_BAR_THICKNESS;
 		scroll_bar_button.w = scroll_bar_button_size;
 		scroll_bar_button.h = SCROLL_BAR_THICKNESS;
@@ -131,7 +130,7 @@ void draw_scroll_view(View* view, Vec4 rect, Env *env)
 	else
 	{
 		scroll_bar_button.x = rect.x + rect.w - SCROLL_BAR_THICKNESS;
-		scroll_bar_button.y = rect.y + fminf(scroll_view->scroll*scroll_bar.h, rect.h - scroll_bar_button_size);
+		scroll_bar_button.y = rect.y + clamp(scroll_view->scroll*scroll_bar.h, 0, rect.h - scroll_bar_button_size);
 		scroll_bar_button.w = SCROLL_BAR_THICKNESS;
 		scroll_bar_button.h = scroll_bar_button_size;
 	}
