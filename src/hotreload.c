@@ -18,7 +18,6 @@ void load_module(AppModule *module, char* file_path)
 	{
 		FreeLibrary(module->handle);
 	}
-
 	module->handle = LoadLibrary(file_path);
 	if (module->handle == NULL)
 	{
@@ -31,6 +30,8 @@ void load_module(AppModule *module, char* file_path)
 	module->app_update = (void (*)(Env*))GetProcAddress(module->handle, "app_update");
 	module->app_pre_reload = (AppStateHandle (*)(void))GetProcAddress(module->handle, "app_pre_reload");
 	module->app_post_reload = (void (*)(AppStateHandle))GetProcAddress(module->handle, "app_post_reload");
+
+	OutputDebugString("INFO: Loaded app module\n");
 #else
 	if (module->handle != NULL) dlclose(module->handle);
 

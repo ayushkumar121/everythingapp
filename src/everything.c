@@ -19,7 +19,7 @@ typedef struct
 
 AppState *state = NULL;
 
-void app_load(void)
+export void app_load(void)
 {
 	state = malloc(sizeof(AppState));
 	memset(state, 0, sizeof(AppState));
@@ -28,7 +28,7 @@ void app_load(void)
 	load_font(&state->font, "assets/spleen-16x32.bdf");
 }
 
-void app_init(Env* env)
+export void app_init(Env* env)
 {
 	state->width = env->width;
 	state->height = env->height;
@@ -87,7 +87,7 @@ void app_init(Env* env)
 	state->view = (View*)scroll_view;
 }
 
-void app_update(Env *env)
+export void app_update(Env *env)
 {
 	if (state->width != env->width || state->height != env->height)
 	{
@@ -111,8 +111,7 @@ void app_update(Env *env)
 	draw_text(image, state->font, fps, 32, (Vec2){.x = env->width-200, .y = 50}, COLOR_GREEN);
 }
 
-// For hot reloading
-AppStateHandle app_pre_reload(void)
+export AppStateHandle app_pre_reload(void)
 {
 	return (AppStateHandle) {
 		.state = state,
@@ -120,7 +119,7 @@ AppStateHandle app_pre_reload(void)
 	};
 }
 
-void app_post_reload(AppStateHandle handle)
+export void app_post_reload(AppStateHandle handle)
 {
 	state = malloc(sizeof(AppState));
 	memcpy(state, handle.state, handle.size);

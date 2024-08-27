@@ -19,6 +19,12 @@
 #define unreachable() assert(false && "Unreachable code")
 #define countof(x) (sizeof(x) / sizeof((x)[0]))
 
+#ifdef _WIN32
+#define export __declspec(dllexport)
+#else
+#define export __attribute__((visibility("default")))
+#endif
+
 #define ARRAY_INIT_CAP 10
 
 #define ARRAY(T)     \

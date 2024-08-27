@@ -141,7 +141,6 @@ LRESULT CALLBACK WndProc(
 
 void UpdateBuffer()
 {
-	OutputDebugString("UpdateBuffer\n");
 	if (module.app_init && !app_initialised)
 	{
 		module.app_init(&env);
