@@ -11,3 +11,6 @@
 *.dylib
 *.ilk
 *.dSYM
+everything
+make
+make.old

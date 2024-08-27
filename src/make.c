@@ -109,6 +109,8 @@ void compile_library(void)
         array_append(&cmd, "/nologo");
         array_append(&cmd, "/LD");
         array_append(&cmd, "/Zi");
+        array_append(&cmd, "/Fe:");
+        array_append(&cmd, lib_name);
     #else
         array_append(&cmd, "cc");
         array_append(&cmd, "-Wall");
@@ -148,7 +150,7 @@ void compile_executable(void)
         "src/hotreload.c",
     };
     int src_files_count = countof(src_files);
-    char* exe_name = "everything_win32.exe";
+    char* exe_name = "everything.exe";
 #endif
 #ifdef __APPLE__
     char* src_files[] = {
@@ -189,7 +191,7 @@ void compile_executable(void)
         array_append(&cmd, "-g");
         array_append(&cmd, "-Og");
         array_append(&cmd, "-o");
-        array_append(&cmd, "everything");
+        array_append(&cmd, exe_name);
         for (int i = 0; i < src_files_count; i++)
         {
             array_append(&cmd, src_files[i]);
