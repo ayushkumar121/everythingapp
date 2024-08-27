@@ -397,8 +397,6 @@ Process cmd_run_async(Cmd *cmd)
 	sb_append_null(&sb);
 	
 	fprintf(stderr, "INFO: Running command: %s\n", sb.items);
-	
-	sb_free(&sb);
 
 #ifdef _WIN32
     STARTUPINFO siStartInfo;
@@ -414,11 +412,13 @@ Process cmd_run_async(Cmd *cmd)
     ZeroMemory(&piProcInfo, sizeof(PROCESS_INFORMATION));
 
 	BOOL bSuccess = CreateProcessA(NULL, sb.items, NULL, NULL, TRUE, 0, NULL, NULL, &siStartInfo, &piProcInfo);
+	sb_free(&sb);
 
 	if (!bSuccess)
 		return INVALID_PROCESS;
 	return piProcInfo.hProcess;
 #else
+	sb_free(&sb);
 	Process proc = fork();
 	if (proc == 0)
 	{
