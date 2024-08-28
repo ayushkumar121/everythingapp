@@ -44,10 +44,11 @@ void draw_view(View* view, Env *env)
 		view->draw(view, rect, &off_canvas);
 	}
 
+    Vec2 child_offset = { .x = rect.x, .y = rect.y };
 	for (size_t i=0; i < view->children.length; i++)
 	{
 		View* child = view->children.items[i];
-		child->offset = (Vec2) {.x=rect.x,.y = rect.y};
+		child->offset = child_offset;
 		draw_view(child, &off_canvas);
 	}
 	draw_image(image_from_env(env), image_from_env(&off_canvas), rect, &rect);

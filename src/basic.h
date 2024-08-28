@@ -141,7 +141,12 @@ Process cmd_run_async(Cmd *cmd);
 bool cmd_run_sync(Cmd *cmd);
 
 bool file_rename(char* old_path, char* new_path);
-bool needs_rebuild(char* binary_path, char** src_files, size_t src_files_len);
+bool file_needs_rebuild(char* binary_path, char** src_files, size_t src_files_len);
+
+typedef Process Thread;
+
+Thread thread_create(void* (*func)(void*), void* arg);
+void thread_join(Thread proc);
 
 #ifdef BASIC_IMPLEMENTATION
 
@@ -491,7 +496,7 @@ int64_t get_file_mod_time(const char *file_path)
 #endif
 }
 
-bool needs_rebuild(char* binary_path, char** src_files, size_t src_files_len)
+bool file_needs_rebuild(char* binary_path, char** src_files, size_t src_files_len)
 {
 	int out_time = get_file_mod_time(binary_path);
 	if (out_time < 0)
@@ -509,4 +514,43 @@ bool needs_rebuild(char* binary_path, char** src_files, size_t src_files_len)
 
 	return false;
 }
+
+Thread thread_create(void* (*func)(void*), void* arg)
+{
+#ifdef _WIN32
+	DWORD thread_id;
+	HANDLE thread = CreateThread(NULL, 0, func, arg, 0, &thread_id);
+	if (thread == NULL)
+	{
+		fprintf(stderr, "ERROR: Failed to create thread\n");
+		return INVALID_PROCESS;
+	}
+	return thread;
+#else
+	Thread thread = fork();
+	if (thread == 0)
+	{
+		func(arg);
+		exit(0);
+	}
+	else if (thread < 0)
+	{
+		fprintf(stderr, "ERROR: Failed to create process\n");
+		return INVALID_PROCESS;
+	}
+	return thread;
+#endif
+}
+
+void thread_join(Thread thread)
+{
+#ifdef _WIN32
+	WaitForSingleObject(thread, INFINITE);
+	CloseHandle(thread);
+#else
+	int status;
+	waitpid(thread, &status, 0);
+#endif
+}
+
 #endif

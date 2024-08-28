@@ -23,7 +23,7 @@ void compile_self(int argc, char **argv)
     char* binary_path = argv[0];
     char* source_path = __FILE__;
 
-    if (needs_rebuild(binary_path, &source_path, 1))
+    if (file_needs_rebuild(binary_path, &source_path, 1))
     {
         StringBuilder sb = {0};
         sb_append_str(&sb, binary_path);
@@ -51,8 +51,7 @@ void compile_self(int argc, char **argv)
             array_append(&cmd, "-Wall");
             array_append(&cmd, "-Wextra");
             array_append(&cmd, "-Wpedantic");
-            array_append(&cmd, "-g");
-            array_append(&cmd, "-Og");
+            array_append(&cmd, "-O2");
             array_append(&cmd, "-o");
             array_append(&cmd, binary_path);
             array_append(&cmd, source_path);
@@ -70,14 +69,7 @@ void compile_self(int argc, char **argv)
         Cmd cmd2 = {0};
         array_append(&cmd2, binary_path);
 
-        success = cmd_run_sync(&cmd2);
-        array_free(&cmd2);
-
-        if (!success)
-        {
-            fprintf(stderr, "ERROR: Failed to run new version\n");
-            exit(1);
-        }
+        cmd_run_sync(&cmd2);
         exit(0);
     }
 }
@@ -101,7 +93,7 @@ void compile_library(void)
     char* lib_name = "everything.so";
 #endif
 
-    if (needs_rebuild(lib_name, src_files, src_files_count))
+    if (file_needs_rebuild(lib_name, src_files, src_files_count))
     {
         Cmd cmd = {0};
     #ifdef _WIN32
@@ -121,7 +113,7 @@ void compile_library(void)
         array_append(&cmd, "-Wextra");
         array_append(&cmd, "-Wpedantic");
         array_append(&cmd, "-g");
-        array_append(&cmd, "-Og");
+        array_append(&cmd, "-O2");
     #ifdef __APPLE__
         array_append(&cmd, "-dynamiclib");
     #else
@@ -174,7 +166,7 @@ void compile_executable(void)
     char* exe_name = "everything";
 #endif
 
-    if (needs_rebuild(exe_name, src_files, src_files_count))
+    if (file_needs_rebuild(exe_name, src_files, src_files_count))
     {
         Cmd cmd = {0};
     #ifdef _WIN32
@@ -194,7 +186,7 @@ void compile_executable(void)
         array_append(&cmd, "-Wall");
         array_append(&cmd, "-Wextra");
         array_append(&cmd, "-g");
-        array_append(&cmd, "-Og");
+        array_append(&cmd, "-O2");
         array_append(&cmd, "-o");
         array_append(&cmd, exe_name);
         for (int i = 0; i < src_files_count; i++)

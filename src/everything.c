@@ -1,4 +1,5 @@
 #include "env.h"
+#define BASIC_IMPLEMENTATION
 #include "basic.h"
 #include "drawing.h"
 #include "hotreload.h"
