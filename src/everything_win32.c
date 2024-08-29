@@ -1,5 +1,6 @@
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
+#include <windowsx.h>
 #include <assert.h>
 
 #include "config.h"
@@ -8,7 +9,8 @@
 
 Env env = {0};
 AppModule module = {0};
-bool app_initialised = false;
+bool appInitialised = false;
+double lastFrameTime = 0.0;
 
 HWND hWnd;
 HDC hdcMem;
@@ -20,8 +22,9 @@ HBITMAP hBitmap;
 
 LRESULT CALLBACK WndProc(HWND, UINT, WPARAM, LPARAM);
 void AllocateBuffer(int width, int height);
-void FreeBuffer();
-void UpdateBuffer();
+void FreeBuffer(void);
+void UpdateBuffer(void);
+double GetUnixTime(void);
 
 int WINAPI WinMain(
 	HINSTANCE hInstance,
@@ -85,6 +88,37 @@ LRESULT CALLBACK WndProc(
 	case WM_CREATE:
 	{
 		AllocateBuffer(INIT_WIDTH, INIT_HEIGHT);
+		lastFrameTime = GetUnixTime();
+	}
+	break;
+
+	case WM_MOUSEMOVE:
+	{
+		env.mouse_x = GET_X_LPARAM(lParam);
+		env.mouse_y = GET_Y_LPARAM(lParam);
+	}
+	break;
+
+	case WM_LBUTTONDOWN:
+	{
+		env.mouse_left_down = true;
+	}
+	break;
+
+	case WM_LBUTTONUP:
+	{
+		env.mouse_left_down = false;
+	}
+	break;
+
+	case WM_RBUTTONDOWN:
+	{
+		env.mouse_right_down = true;
+	}
+
+	case WM_RBUTTONUP:
+	{
+		env.mouse_right_down = false;
 	}
 	break;
 
@@ -139,23 +173,33 @@ LRESULT CALLBACK WndProc(
 }
 
 
-void UpdateBuffer()
+void UpdateBuffer(void)
 {
-	if (module.app_init && !app_initialised)
+	double startTime = GetUnixTime();
+	double dt = startTime - lastFrameTime;
+	env.delta_time = dt;
+
+	if (module.app_init && !appInitialised)
 	{
 		module.app_init(&env);
-		app_initialised = true;
+		appInitialised = true;
 	}
 
 	if (module.app_update)
 	{
 		module.app_update(&env);
 	}
+
+	lastFrameTime = startTime;
 }
 
 void AllocateBuffer(int width, int height)
 {
-	assert(width > 0 && height > 0);
+	if (width <= 0 || height <= 0)
+	{
+		return;
+	}
+	
 	BITMAPINFO bmi;
     HDC hdc = GetDC(hWnd);
 
@@ -171,13 +215,12 @@ void AllocateBuffer(int width, int height)
 
     hBitmap = CreateDIBSection(hdcMem, &bmi, DIB_RGB_COLORS, (void**)&env.buffer, NULL, 0);
     SelectObject(hdcMem, hBitmap);
-    memset(env.buffer, 0x00, width * height * 4);
 
 	env.width = width;
 	env.height = height;
 }
 
-void FreeBuffer()
+void FreeBuffer(void)
 {
 	if (hBitmap != NULL) 
 	{
@@ -192,4 +235,16 @@ void FreeBuffer()
     }
 
 	// env.buffer is freed when the DIB section is deleted
+}
+
+double GetUnixTime(void)
+{
+	FILETIME ft;
+	GetSystemTimeAsFileTime(&ft);
+
+	ULARGE_INTEGER ull;
+	ull.LowPart = ft.dwLowDateTime;
+	ull.HighPart = ft.dwHighDateTime;
+
+	return (double)ull.QuadPart / 10000000.0;
 }

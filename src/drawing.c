@@ -8,6 +8,7 @@
 
 #define EPSILON 1e-3f
 #define BORDER_RADIUS_THRESHOLD 10.0f
+#define THREAD_COUNT 4
 
 Vec4 v4_add_v4(Vec4 a, Vec4 b)
 {
@@ -483,6 +484,43 @@ void load_image(Image *image, const char *filename)
 	}
 }
 
+typedef struct
+{
+	Image background;
+	Image image;
+	Vec4 rect;
+	Vec4 crop;
+} DrawImageThreadArgs;
+
+void* draw_image_thread(void* data) {
+	DrawImageThreadArgs *args = (DrawImageThreadArgs *)data;
+	
+	Vec4 rect = args->rect;
+	Vec4 crop_rect = args->crop;
+	Image background = args->background;
+	Image image = args->image;
+
+	const float sx = crop_rect.w / args->rect.w;
+	const float sy = crop_rect.h / args->rect.h;
+
+	for (int y = 0; y < rect.h; ++y)
+	{
+		for (int x = 0; x < rect.w; ++x)
+		{
+			const int ix = (int)(x * sx + crop_rect.x);
+			const int iy = (int)(y * sy + crop_rect.y);
+
+			if (ix >= 0 && ix < image.width && iy >= 0 && iy < image.height)
+			{
+				int k = iy * image.width + ix;
+				put_pixel(background, x + rect.x, y + rect.y, image.pixels[k]);
+			}
+		}
+	}
+
+	return NULL;
+}
+
 void draw_image(Image background, Image image, Vec4 rect, Vec4 *crop)
 {
 	assert(image.pixels != NULL);
@@ -501,23 +539,37 @@ void draw_image(Image background, Image image, Vec4 rect, Vec4 *crop)
 		};
 	}
 
-	const float sx = crop_rect.w / rect.w;
-	const float sy = crop_rect.h / rect.h;
+	DrawImageThreadArgs args[THREAD_COUNT];
+	Thread threads[THREAD_COUNT];
 
-	for (int y = 0; y < rect.h; ++y)
+	for (int i = 0; i < THREAD_COUNT; ++i)
 	{
-		for (int x = 0; x < rect.w; ++x)
+		args[i] = (DrawImageThreadArgs)
 		{
-			const int ix = (int)(x * sx + crop_rect.x);
-			const int iy = (int)(y * sy + crop_rect.y);
+			.background = background,
+			.image = image,
+			.rect = (Vec4) {
+				.x = rect.x,
+				.y = rect.y + i * rect.h / THREAD_COUNT,
+				.w = rect.w,
+				.h = rect.h / THREAD_COUNT
+			},
+			.crop = (Vec4) {
+				.x = crop_rect.x,
+				.y = crop_rect.y + i * crop_rect.h / THREAD_COUNT,
+				.w = crop_rect.w,
+				.h = crop_rect.h / THREAD_COUNT
+			},
+		};
 
-			if (ix >= 0 && ix < image.width && iy >= 0 && iy < image.height)
-			{
-				int k = iy * image.width + ix;
-				put_pixel(background, x + rect.x, y + rect.y, image.pixels[k]);
-			}
-		}
+		threads[i] = thread_create(draw_image_thread, &args[i]);
 	}
+
+	for (int i = 0; i < THREAD_COUNT; ++i)
+	{
+		thread_join(threads[i]);
+	}
+
 }
 
 void free_image(Image *image)

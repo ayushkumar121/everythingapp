@@ -100,7 +100,9 @@ void compile_library(void)
         array_append(&cmd, "cl.exe");
         array_append(&cmd, "/nologo");
         array_append(&cmd, "/LD");
+        array_append(&cmd, "/DLL");
         array_append(&cmd, "/Zi");
+        array_append(&cmd, "/O2");
         for (size_t i = 0; i < src_files_count; i++)
         {
             array_append(&cmd, src_files[i]);
@@ -173,6 +175,7 @@ void compile_executable(void)
         array_append(&cmd, "cl.exe");
         array_append(&cmd, "/nologo");
         array_append(&cmd, "/Zi");
+        array_append(&cmd, "/O2");
         for (int i = 0; i < src_files_count; i++)
         {
             array_append(&cmd, src_files[i]);

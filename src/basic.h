@@ -154,6 +154,7 @@ void sb_resize(StringBuilder *sb, size_t new_capacity)
 {
 	sb->capacity = new_capacity;
 	sb->items = realloc(sb->items, sb->capacity + 1);
+	assert(sb->items != NULL);
 }
 
 void sb_free(StringBuilder *sb)
@@ -519,7 +520,7 @@ Thread thread_create(void* (*func)(void*), void* arg)
 {
 #ifdef _WIN32
 	DWORD thread_id;
-	HANDLE thread = CreateThread(NULL, 0, func, arg, 0, &thread_id);
+	HANDLE thread = CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE)func, arg, 0, &thread_id);
 	if (thread == NULL)
 	{
 		fprintf(stderr, "ERROR: Failed to create thread\n");
