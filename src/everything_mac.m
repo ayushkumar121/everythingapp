@@ -41,7 +41,7 @@ double getTime(void)
 - (void)applicationDidFinishLaunching:(NSNotification *)aNotification
 {
 	int windowStyleMask = NSWindowStyleMaskTitled | NSWindowStyleMaskClosable |
-	                      NSWindowStyleMaskResizable | NSWindowStyleMaskFullSizeContentView
+	                      NSWindowStyleMaskResizable
 	                      | NSWindowStyleMaskMiniaturizable;
 
 	self.window = [[NSWindow alloc]

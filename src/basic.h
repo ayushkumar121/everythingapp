@@ -16,6 +16,7 @@
 #else
 #include <unistd.h>
 #include <sys/stat.h>
+#include <pthread.h>
 #endif
 
 #define unused(x) ((void)(x))
@@ -126,7 +127,7 @@ StringView sv_chop_str(StringView *sv, char *str);
 
 #ifdef _WIN32
 typedef HANDLE Process;
-#define INVALID_PROCESS INVALID_HANDLE_VALUE 
+#define INVALID_PROCESS INVALID_HANDLE_VALUE
 #else
 typedef int Process;
 #define INVALID_PROCESS -1
@@ -143,9 +144,15 @@ bool cmd_run_sync(Cmd *cmd);
 bool file_rename(char* old_path, char* new_path);
 bool file_needs_rebuild(char* binary_path, char** src_files, size_t src_files_len);
 
-typedef Process Thread;
+#ifdef _WIN32
+typedef HANDLE Thread;
+#define INVALID_PROCESS NULL
+#else
+typedef pthread_t Thread;
+#define INVALID_THREAD 0
+#endif
 
-Thread thread_create(void* (*func)(void*), void* arg);
+Thread thread_create(void (*func)(void*), void* arg);
 void thread_join(Thread proc);
 
 #ifdef BASIC_IMPLEMENTATION
@@ -516,7 +523,7 @@ bool file_needs_rebuild(char* binary_path, char** src_files, size_t src_files_le
 	return false;
 }
 
-Thread thread_create(void* (*func)(void*), void* arg)
+Thread thread_create(void (*func)(void*), void* arg)
 {
 #ifdef _WIN32
 	DWORD thread_id;
@@ -528,18 +535,13 @@ Thread thread_create(void* (*func)(void*), void* arg)
 	}
 	return thread;
 #else
-	Thread thread = fork();
-	if (thread == 0)
-	{
-		func(arg);
-		exit(0);
-	}
-	else if (thread < 0)
-	{
-		fprintf(stderr, "ERROR: Failed to create process\n");
-		return INVALID_PROCESS;
-	}
-	return thread;
+	pthread_t thread;
+    if (pthread_create(&thread, NULL, (void* (*)(void*))func, arg) != 0)
+    {
+        fprintf(stderr, "ERROR: Failed to create thread\n");
+        return INVALID_THREAD;
+    }
+    return thread;
 #endif
 }
 
@@ -549,8 +551,7 @@ void thread_join(Thread thread)
 	WaitForSingleObject(thread, INFINITE);
 	CloseHandle(thread);
 #else
-	int status;
-	waitpid(thread, &status, 0);
+    pthread_join(thread, NULL);
 #endif
 }
 

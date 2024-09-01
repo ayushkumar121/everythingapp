@@ -43,9 +43,9 @@ export void app_init(Env* env)
 		.base = (ViewArgs){
 			.rect = (Vec4) {
 				.x = 0,
-				.y = 30,
+				.y = 0,
 				.w = env->width/3,
-				.h = env->height - 30,
+				.h = env->height,
 			},
 		},
 		.axis = DIRECTION_VERTICAL,
