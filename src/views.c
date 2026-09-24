@@ -64,8 +64,7 @@ void destroy_view(View* view)
 	view = NULL;
 }
 
-#define SCROLL_BAR_THICKNESS 10
-#define SCROLL_THUMB_MIN_SIZE 20
+#define SCROLL_BAR_DEFAULT_THICKNESS 10
 
 static float scroll_content_size(ScrollView* scroll_view)
 {
@@ -95,21 +94,22 @@ void draw_scroll_view(View* view, Vec4 rect, Vec4 clip, Env *env)
 	const float content = scroll_content_size(scroll_view);
 	const float max_scroll = fmaxf(content - viewport, 0.0f);
 
+	const float thickness = scroll_view->bar_thickness;
 	Vec4 scroll_bar;
 	if (horizontal)
 	{
-		scroll_bar = (Vec4){ .x = rect.x, .y = rect.y + rect.h - SCROLL_BAR_THICKNESS, .w = rect.w, .h = SCROLL_BAR_THICKNESS };
+		scroll_bar = (Vec4){ .x = rect.x, .y = rect.y + rect.h - thickness, .w = rect.w, .h = thickness };
 	}
 	else
 	{
-		scroll_bar = (Vec4){ .x = rect.x + rect.w - SCROLL_BAR_THICKNESS, .y = rect.y, .w = SCROLL_BAR_THICKNESS, .h = rect.h };
+		scroll_bar = (Vec4){ .x = rect.x + rect.w - thickness, .y = rect.y, .w = thickness, .h = rect.h };
 	}
 
 	const float track = horizontal ? scroll_bar.w : scroll_bar.h;
 	float thumb_size = track;
 	if (content > viewport)
 	{
-		thumb_size = fmaxf(track * viewport / content, fminf(SCROLL_THUMB_MIN_SIZE, track));
+		thumb_size = fmaxf(track * viewport / content, fminf(2 * thickness, track));
 	}
 
 	Vec2 mouse_pos = mouse_position(env);
@@ -144,10 +144,10 @@ void draw_scroll_view(View* view, Vec4 rect, Vec4 clip, Env *env)
 		view->content_offset = (Vec2){ .y = scroll_view->scroll };
 	}
 
-	draw_rect(image, rect, 0x50AAAAAAu, &clip);
+	draw_rect(image, rect, scroll_view->background_color, &clip);
 	if (max_scroll <= 0.0f) return;
 
-	draw_rect(image, scroll_bar, 0x60EEEEEEu, &clip);
+	draw_rect(image, scroll_bar, scroll_view->track_color, &clip);
 
 	float thumb_pos = scroll_view->scroll / max_scroll * (track - thumb_size);
 	Vec4 thumb = scroll_bar;
@@ -161,7 +161,7 @@ void draw_scroll_view(View* view, Vec4 rect, Vec4 clip, Env *env)
 		thumb.y += thumb_pos;
 		thumb.h = thumb_size;
 	}
-	draw_rect(image, thumb, COLOR_RED, &clip);
+	draw_rect(image, thumb, scroll_view->thumb_color, &clip);
 }
 
 ScrollView* new_scroll_view(ScrollViewArgs* args)
@@ -172,6 +172,10 @@ ScrollView* new_scroll_view(ScrollViewArgs* args)
 	new_view((View*)view, (ViewArgs*)args);
 	view->base.draw = draw_scroll_view;
 	view->axis = args->axis;
+	view->bar_thickness = args->bar_thickness > 0 ? args->bar_thickness : SCROLL_BAR_DEFAULT_THICKNESS;
+	view->background_color = args->background_color;
+	view->track_color = args->track_color;
+	view->thumb_color = args->thumb_color;
 	return view;
 }
 

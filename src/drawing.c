@@ -7,7 +7,6 @@
 #include <string.h>
 
 #define EPSILON 1e-3f
-#define BORDER_RADIUS_THRESHOLD 10.0f
 #define THREAD_COUNT 4
 
 Vec4 v4_add_v4(Vec4 a, Vec4 b)
@@ -172,66 +171,6 @@ Vec2 lerp_points(Vec2 a, Vec2 b, float t)
 	return p;
 }
 
-typedef enum
-{
-	OUTSIDE_BORDER,
-	ON_BORDER,
-	INSIDE_BORDER,
-} BorderCheckResult;
-
-BorderCheckResult border_radius_check(Vec4 rect, int cx, int cy, float r, float r_squared)
-{
-	bool inside_border = false;
-	bool on_border = false;
-
-	// Top Left corner
-	float c = powf(cx - (rect.x + r), 2.0f) + powf(cy - (rect.y + r), 2.0f);
-	if (cx <= (rect.x + r) && cy <= (rect.y + r))
-	{
-		inside_border = c < r_squared;
-		on_border = fabsf(c - r_squared) <= BORDER_RADIUS_THRESHOLD;
-	}
-
-	// Top Right corner
-	c = powf(cx - (rect.x + rect.w - r), 2.0f) + powf(cy - (rect.y + r), 2.0f);
-	if (cx >= (rect.x + rect.w - r) && cy <= (rect.y + r))
-	{
-		inside_border = inside_border || c < r_squared;
-		on_border = on_border || fabsf(c - r_squared) <= BORDER_RADIUS_THRESHOLD;
-	}
-
-	// Bottom Left corner
-	c = powf(cx - (rect.x + r), 2.0f) + powf(cy - (rect.y + rect.h - r), 2.0f);
-	if (cx <= (rect.x + r) && cy >= (rect.y + rect.h - r))
-	{
-		inside_border = inside_border || c < r_squared;
-		on_border = on_border || fabsf(c - r_squared) <= BORDER_RADIUS_THRESHOLD;
-	}
-
-	// Bottom Right corner
-	c = powf(cx - (rect.x + rect.w - r), 2.0f) + powf(cy - (rect.y + rect.h - r), 2.0f);
-	if (cx >= (rect.x + rect.w - r) && cy >= (rect.y + rect.h - r))
-	{
-		inside_border = inside_border || c < r_squared;
-		on_border = on_border || fabsf(c - r_squared) <= BORDER_RADIUS_THRESHOLD;
-	}
-
-	inside_border = inside_border
-	                || (cx > rect.x + r && cx < rect.x + rect.w - r)
-	                || (cy > rect.y + r && cy < rect.y + rect.h - r);
-
-	on_border = on_border
-	            || (cx == rect.x && cy >= rect.y + r && cy <= rect.y + rect.h - r)
-	            || (cx == rect.x + rect.w && cy >= rect.y + r && cy <= rect.y + rect.h - r)
-	            || (cy == rect.y && cx >= rect.x + r && cx <= rect.x + rect.w - r)
-	            || (cy == rect.y + rect.h && cx >= rect.x + r && cx <= rect.x + rect.w - r);
-
-	if (on_border) return ON_BORDER;
-	if (inside_border) return INSIDE_BORDER;
-
-	return OUTSIDE_BORDER;
-}
-
 void clear_image(Image image, Color color)
 {
 	for (int y = 0; y < image.height; ++y)
@@ -243,22 +182,34 @@ void clear_image(Image image, Color color)
 	}
 }
 
+// Fills [x0, x1) of row y, the caller keeps the span inside the image
+static void fill_span(Image image, int y, int x0, int x1, Color color)
+{
+	Color *row = image.pixels + y * image.width;
+
+	if (COLOR_A(color) == 255)
+	{
+		for (int x = x0; x < x1; ++x) row[x] = color;
+	}
+	else if (COLOR_A(color) > 0)
+	{
+		for (int x = x0; x < x1; ++x) row[x] = layer_color(row[x], color);
+	}
+}
+
 void draw_rect(Image image, Vec4 rect, Color color, Vec4 *clip)
 {
 	PixelBounds b = pixel_bounds(image, rect, clip);
 
 	for (int y = b.y0; y < b.y1; ++y)
 	{
-		for (int x = b.x0; x < b.x1; ++x)
-		{
-			put_pixel(image, x, y, color);
-		}
+		fill_span(image, y, b.x0, b.x1, color);
 	}
 }
 
 void draw_rounded_rect(Image image, Vec4 rect, Color color, float border_radius, Vec4 *clip)
 {
-	float r_squared = border_radius * border_radius;
+	float r = fminf(border_radius, fminf(rect.w, rect.h) / 2);
 
 	// The outline includes the right and bottom edges
 	Vec4 outline = rect;
@@ -266,16 +217,21 @@ void draw_rounded_rect(Image image, Vec4 rect, Color color, float border_radius,
 	outline.h += 1;
 	PixelBounds b = pixel_bounds(image, outline, clip);
 
-	for (int cy = b.y0; cy < b.y1; ++cy)
+	float top_centre = rect.y + r;
+	float bottom_centre = rect.y + rect.h - r;
+
+	for (int y = b.y0; y < b.y1; ++y)
 	{
-		for (int cx = b.x0; cx < b.x1; ++cx)
-		{
-			BorderCheckResult result = border_radius_check(rect, cx, cy, border_radius, r_squared);
-			if (result != OUTSIDE_BORDER)
-			{
-				put_pixel(image, cx, cy, color);
-			}
-		}
+		// Only rows beside a corner are inset, by where they cross the corner's circle
+		float dy = 0.0f;
+		if (y < top_centre) dy = top_centre - y;
+		else if (y > bottom_centre) dy = y - bottom_centre;
+
+		float inset = r - sqrtf(fmaxf(r * r - dy * dy, 0.0f));
+		int x0 = (int)ceilf(rect.x + inset);
+		int x1 = (int)floorf(rect.x + rect.w - inset) + 1;
+
+		fill_span(image, y, x0 > b.x0 ? x0 : b.x0, x1 < b.x1 ? x1 : b.x1, color);
 	}
 }
 
@@ -584,6 +540,7 @@ typedef struct
 typedef struct
 {
 	int size;
+	int ascent;
 	int x_dpi;
 	int y_dpi;
 	FontBDFGlyph glyphs[FONT_BDF_GLYPH_COUNT];
@@ -623,6 +580,10 @@ void load_font_bdf(Font *font, const char *filename)
 			font_bdf->size = size;
 			font_bdf->x_dpi = x_dpi;
 			font_bdf->y_dpi = y_dpi;
+		}
+		else if (strncmp(line, "FONT_ASCENT", 11) == 0)
+		{
+			sscanf(line, "FONT_ASCENT %d", &font_bdf->ascent);
 		}
 		else
 		{
@@ -667,6 +628,24 @@ void load_font_bdf(Font *font, const char *filename)
 			}
 		}
 	}
+
+	if (font_bdf->ascent == 0)
+	{
+		font_bdf->ascent = font_bdf->size;
+	}
+
+	fclose(file);
+}
+
+int font_size(Font font)
+{
+	switch (font.format)
+	{
+		case FONT_BDF:
+			return ((FontBDF *)font.data)->size;
+		default:
+			return 0;
+	}
 }
 
 void load_font(Font *font, const char *filename)
@@ -694,14 +673,24 @@ Vec2 measure_text_bdf(Font font, const char* text, int size)
 
 	int width = 0;
 	int height = 0;
+	int line_width = 0;
+	int line_top = 0;
 
 	for (int i = 0; i < n; ++i)
 	{
 		char ch = text[i];
+		if (ch == '\n')
+		{
+			line_width = 0;
+			line_top += size;
+			continue;
+		}
+
 		FontBDFGlyph glyph = font_bdf->glyphs[(int)ch];
 
-		width += glyph.advance * scaling + size/10.0f;
-		height = fmaxf(height, glyph.height * scaling);
+		line_width += glyph.advance * scaling;
+		width = fmaxf(width, line_width);
+		height = fmaxf(height, line_top + glyph.height * scaling);
 	}
 
 	return (Vec2)
@@ -746,13 +735,21 @@ void draw_text_bdf(Image image, Font font, const char *text, int size, Vec2 posi
 	for (int i = 0; i < n; ++i)
 	{
 		char ch = text[i];
+		if (ch == '\n')
+		{
+			x = position.x;
+			y += size;
+			continue;
+		}
+
 		FontBDFGlyph glyph = font_bdf->glyphs[(int)ch];
 
 		int width = glyph.width * scaling;
 		int height = glyph.height * scaling;
 
+		// position is the top-left of the line, glyph offsets are relative to the baseline
 		int x_offset = glyph.x_offset * scaling;
-		int y_offset = glyph.y_offset * scaling;
+		int y_offset = (font_bdf->ascent - glyph.height - glyph.y_offset) * scaling;
 
 		int left = x + x_offset;
 		int top = y + y_offset;

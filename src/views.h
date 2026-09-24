@@ -39,12 +39,20 @@ typedef struct
 	float scroll; // pixels along axis
 	Axis axis;
 	bool is_dragging;
+	float bar_thickness;
+	Color background_color;
+	Color track_color;
+	Color thumb_color;
 } ScrollView;
 
 typedef struct
 {
 	ViewArgs base;
 	Axis axis;
+	float bar_thickness;
+	Color background_color;
+	Color track_color;
+	Color thumb_color;
 } ScrollViewArgs;
 
 ScrollView* new_scroll_view(ScrollViewArgs* args);

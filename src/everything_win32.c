@@ -35,6 +35,8 @@ int WINAPI WinMain(
 	(void)hPrevInstance;
 	(void)lpCmdLine;
 
+	env.scale = 1.0f;
+
 	load_module(&module, "everything.dll");
 	module.app_load();
 

@@ -116,6 +116,7 @@ typedef struct
 } Font;
 
 void load_font(Font *font, const char *filename);
+int font_size(Font font);
 Vec2 measure_text(Font font, const char* text, int size);
 void draw_text(Image image, Font font, const char *text, int size, Vec2 position, Color text_color, Vec4 *clip);
 void free_font(Font *font);

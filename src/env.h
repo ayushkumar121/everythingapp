@@ -24,6 +24,9 @@ typedef struct
 	// Pixels scrolled this frame, positive moves content right / down
 	float scroll_x;
 	float scroll_y;
+
+	// Pixels per point, 2 on Retina displays. Sizes above are in pixels.
+	float scale;
 } Env;
 
 #endif

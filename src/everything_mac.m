@@ -96,9 +96,11 @@ double getTime(void)
 	double dt = (currentFrameTime - self.lastFrameTime) / 1000.0;
 	env.delta_time = dt;
 
-	// Obtain the dimensions of the window's content view
-	int width = (int) self.window.contentView.bounds.size.width;
-	int height = (int) self.window.contentView.bounds.size.height;
+	// Render at the display's native resolution
+	CGFloat scale = self.window.backingScaleFactor;
+	int width = (int) (self.window.contentView.bounds.size.width * scale);
+	int height = (int) (self.window.contentView.bounds.size.height * scale);
+	env.scale = scale;
 
 	// Allocate a new buffer or reuse the existing one
 
@@ -130,6 +132,7 @@ double getTime(void)
 	CGImageRef frame = CGImageCreate(width, height, 8, 32, pitch, color_space,
 	                                 kCGBitmapByteOrder32Little | kCGImageAlphaFirst,
 	                                 provider, NULL, false, kCGRenderingIntentDefault);
+	self.window.contentView.layer.contentsScale = scale;
 	self.window.contentView.layer.contents = (id)frame;
 	CGImageRelease(frame);
 	CGDataProviderRelease(provider);
@@ -178,8 +181,9 @@ double getTime(void)
 
 	case NSEventTypeScrollWheel:
 	{
-		// Trackpads report pixels, mouse wheels report lines
-		float scale = event.hasPreciseScrollingDeltas ? 1.0f : SCROLL_LINE_HEIGHT;
+		// Trackpads report points, mouse wheels report lines
+		float scale = self.window.backingScaleFactor;
+		if (!event.hasPreciseScrollingDeltas) scale *= SCROLL_LINE_HEIGHT;
 		env.scroll_x += event.scrollingDeltaX * scale;
 		env.scroll_y += event.scrollingDeltaY * scale;
 	}
@@ -195,8 +199,8 @@ double getTime(void)
 		double screenHeight = self.window.contentView.bounds.size.height;
 		mouseLoc.y = screenHeight - mouseLoc.y;
 
-		env.mouse_x = (int) (mouseLoc.x);
-		env.mouse_y = (int) (mouseLoc.y);
+		env.mouse_x = (int) (mouseLoc.x * self.window.backingScaleFactor);
+		env.mouse_y = (int) (mouseLoc.y * self.window.backingScaleFactor);
 	}
 
 	self.inputUsed = false;
