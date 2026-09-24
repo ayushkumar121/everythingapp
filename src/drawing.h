@@ -4,49 +4,28 @@
 #include "basic.h"
 #include <stdint.h>
 
-// Matches framebuffer byte order
-#if defined(_WIN32) || defined(__linux__)
-PACK(typedef struct
-{
-	uint8_t b;
-	uint8_t g;
-	uint8_t r;
-	uint8_t a;
-})
-Color;
-#else
-PACK(typedef struct
-{
-	uint8_t r;
-	uint8_t g;
-	uint8_t b;
-	uint8_t a;
-})
-Color;
-#endif
+// 0xAARRGGBB, stored as B,G,R,A in memory on little-endian
+typedef uint32_t Color;
 
-#define COLOR_RGBA(red, green, blue, alpha) \
-	((Color){.r = (red), .g = (green), .b = (blue), .a = (alpha)})
+#define COLOR_ARGB(a, r, g, b) \
+	((Color)(((uint32_t)(a) << 24) | ((uint32_t)(r) << 16) | ((uint32_t)(g) << 8) | (uint32_t)(b)))
+#define COLOR_A(c) (((c) >> 24) & 0xFF)
+#define COLOR_R(c) (((c) >> 16) & 0xFF)
+#define COLOR_G(c) (((c) >> 8) & 0xFF)
+#define COLOR_B(c) ((c) & 0xFF)
 
-// 0xRRGGBBAA
-#define COLOR_HEX(hex)                      \
-	COLOR_RGBA(((uint32_t)(hex) >> 24) & 0xFF, \
-	           ((uint32_t)(hex) >> 16) & 0xFF, \
-	           ((uint32_t)(hex) >> 8) & 0xFF,  \
-	           (uint32_t)(hex) & 0xFF)
-
-#define COLOR_TRANSPARENT  COLOR_HEX(0x00000000)
-#define COLOR_RED  COLOR_HEX(0xFF0000FF)
-#define COLOR_GREEN  COLOR_HEX(0x00FF00FF)
-#define COLOR_MAGENTA  COLOR_HEX(0xFF00FFFF)
-#define COLOR_WHITE  COLOR_HEX(0xFFFFFFFF)
-#define COLOR_BLACK  COLOR_HEX(0x000000FF)
-#define COLOR_GRAY  COLOR_HEX(0x666666FF)
-#define COLOR_BLUE  COLOR_HEX(0x0000FFFF)
-#define COLOR_CYAN  COLOR_HEX(0x00FFFFFF)
-#define COLOR_ORANGE  COLOR_HEX(0xFFA500FF)
-#define COLOR_PURPLE  COLOR_HEX(0x800080FF)
-#define COLOR_YELLOW  COLOR_HEX(0xFFFF00FF)
+#define COLOR_TRANSPARENT  0x00000000u
+#define COLOR_RED  0xFFFF0000u
+#define COLOR_GREEN  0xFF00FF00u
+#define COLOR_MAGENTA  0xFFFF00FFu
+#define COLOR_WHITE  0xFFFFFFFFu
+#define COLOR_BLACK  0xFF000000u
+#define COLOR_GRAY  0xFF666666u
+#define COLOR_BLUE  0xFF0000FFu
+#define COLOR_CYAN  0xFF00FFFFu
+#define COLOR_ORANGE  0xFFFFA500u
+#define COLOR_PURPLE  0xFF800080u
+#define COLOR_YELLOW  0xFFFFFF00u
 
 typedef union
 {

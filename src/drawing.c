@@ -112,25 +112,19 @@ Env env_from_image(Image image)
 
 Color layer_color(Color bottom, Color top)
 {
-	float top_alpha = (float) top.a / 255.0f;
-    float bottom_alpha = (float) bottom.a / 255.0f;
+	float top_alpha = (float) COLOR_A(top) / 255.0f;
+    float bottom_alpha = (float) COLOR_A(bottom) / 255.0f;
     float out_alpha = top_alpha + bottom_alpha * (1.0f - top_alpha);
     if (out_alpha == 0)
     {
-        return (Color) { .r = 0, .g = 0, .b = 0, .a = 0 };
+        return COLOR_TRANSPARENT;
     }
 
-    float r = ((float) top.r * top_alpha + (float) bottom.r * bottom_alpha * (1.0f - top_alpha)) / out_alpha;
-    float g = ((float) top.g * top_alpha + (float) bottom.g * bottom_alpha * (1.0f - top_alpha)) / out_alpha;
-    float b = ((float) top.b * top_alpha + (float) bottom.b * bottom_alpha * (1.0f - top_alpha)) / out_alpha;
+    float r = ((float) COLOR_R(top) * top_alpha + (float) COLOR_R(bottom) * bottom_alpha * (1.0f - top_alpha)) / out_alpha;
+    float g = ((float) COLOR_G(top) * top_alpha + (float) COLOR_G(bottom) * bottom_alpha * (1.0f - top_alpha)) / out_alpha;
+    float b = ((float) COLOR_B(top) * top_alpha + (float) COLOR_B(bottom) * bottom_alpha * (1.0f - top_alpha)) / out_alpha;
 
-    return (Color)
-    {
-        .r = (uint8_t) r,
-        .g = (uint8_t) g,
-        .b = (uint8_t) b,
-        .a = (uint8_t) (out_alpha * 255.0f)
-    };
+    return COLOR_ARGB((uint8_t) (out_alpha * 255.0f), (uint8_t) r, (uint8_t) g, (uint8_t) b);
 }
 
 static inline Color get_pixel(Image image, int x, int y)
@@ -149,9 +143,9 @@ static inline void put_pixel(Image image, int x, int y, Color color)
 
 	if (x < 0 || x >= image.width) return;
 	if (y < 0 || y >= image.height) return;
-	if (color.a == 0) return;
+	if (COLOR_A(color) == 0) return;
 
-	if (color.a == 255)
+	if (COLOR_A(color) == 255)
 	{
 		image.pixels[y * image.width + x] = color;
 	}
@@ -163,12 +157,11 @@ static inline void put_pixel(Image image, int x, int y, Color color)
 
 Color mix_color(Color a, Color b, float t)
 {
-	Color c = {0};
-	c.r = lerp(a.r, b.r, t);
-	c.g = lerp(a.g, b.g, t);
-	c.b = lerp(a.b, b.b, t);
-	c.a = lerp(a.a, b.a, t);
-	return c;
+	return COLOR_ARGB(
+		(uint8_t)lerp(COLOR_A(a), COLOR_A(b), t),
+		(uint8_t)lerp(COLOR_R(a), COLOR_R(b), t),
+		(uint8_t)lerp(COLOR_G(a), COLOR_G(b), t),
+		(uint8_t)lerp(COLOR_B(a), COLOR_B(b), t));
 }
 
 Vec2 lerp_points(Vec2 a, Vec2 b, float t)
@@ -361,10 +354,10 @@ void blur_image(Image image)
 
 					Color color = get_pixel(image, px, py);
 
-					r += color.r * kernel[ky][kx];
-					g += color.g * kernel[ky][kx];
-					b += color.b * kernel[ky][kx];
-					a += color.a * kernel[ky][kx];
+					r += COLOR_R(color) * kernel[ky][kx];
+					g += COLOR_G(color) * kernel[ky][kx];
+					b += COLOR_B(color) * kernel[ky][kx];
+					a += COLOR_A(color) * kernel[ky][kx];
 				}
 			}
 
@@ -372,13 +365,7 @@ void blur_image(Image image)
 			g = clamp(g, 0.0f, 255.0f);
 			b = clamp(b, 0.0f, 255.0f);
 
-			put_pixel(image, x, y, (Color)
-			{
-				.r=(uint8_t)r,
-				.g=(uint8_t)g,
-				.b=(uint8_t)b,
-				.a=(uint8_t)a,
-			});
+			put_pixel(image, x, y, COLOR_ARGB((uint8_t)a, (uint8_t)r, (uint8_t)g, (uint8_t)b));
 		}
 	}
 }
@@ -392,7 +379,7 @@ void fade_image(Image image, float opacity)
 		for (int x=0; x<image.width; ++x)
 		{
 			Color color = get_pixel(image, x, y);
-			color.a = (uint8_t)((float)color.a * opacity);
+			color = (color & 0x00FFFFFF) | ((uint32_t)((float)COLOR_A(color) * opacity) << 24);
 			put_pixel(image, x, y, color);
 		}
 	}
@@ -489,7 +476,7 @@ void load_image_bmp(Image *image, const char *filename)
 	{
 		for (int x = 0; x < image->width; ++x)
 		{
-			Color color = {0};
+			Color color = COLOR_TRANSPARENT;
 			uint8_t bytes[4] = {0};
 			for (int i = 0; i < bytes_per_pixel; ++i)
 			{
@@ -498,24 +485,15 @@ void load_image_bmp(Image *image, const char *filename)
 
 			if (bytes_per_pixel == 1)
 			{
-				color.b = bytes[0];
-				color.g = bytes[0];
-				color.r = bytes[0];
-				color.a = 255;
+				color = COLOR_ARGB(255, bytes[0], bytes[0], bytes[0]);
 			}
 			else if (bytes_per_pixel == 3)
 			{
-				color.b = bytes[0];
-				color.g = bytes[1];
-				color.r = bytes[2];
-				color.a = 255;
+				color = COLOR_ARGB(255, bytes[2], bytes[1], bytes[0]);
 			}
 			else if (bytes_per_pixel == 4)
 			{
-				color.b = bytes[0];
-				color.g = bytes[1];
-				color.r = bytes[2];
-				color.a = bytes[3];
+				color = COLOR_ARGB(bytes[3], bytes[2], bytes[1], bytes[0]);
 			}
 
 			image->pixels[y * image->width + x] = color;
@@ -809,8 +787,7 @@ void draw_text_bdf(Image image, Font font, const char *text, int size, Vec2 posi
 				}
 
 				float coverage_ratio = (float)coverage / (samples * samples);
-				Color color = text_color;
-				color.a = (uint8_t)(text_color.a * coverage_ratio);
+				Color color = (text_color & 0x00FFFFFF) | ((uint32_t)(COLOR_A(text_color) * coverage_ratio) << 24);
 				put_pixel(image, left + gx, top + gy, color);
 			}
 		}

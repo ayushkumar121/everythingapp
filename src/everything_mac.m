@@ -12,6 +12,7 @@
 Env env = {0};
 AppModule module = {0};
 bool app_initialised = false;
+CGColorSpaceRef color_space = NULL;
 
 double getTime(void)
 {
@@ -30,8 +31,6 @@ double getTime(void)
 @property double lastFrameTime;
 
 @property(nonatomic, strong) NSWindow *window;
-@property(nonatomic, strong) NSImage *image;
-@property(nonatomic, strong) NSBitmapImageRep *imageRep;
 
 - (void)updateFrame;
 - (void)handleInput:(NSEvent *)event;
@@ -57,6 +56,7 @@ double getTime(void)
 	[NSApp activateIgnoringOtherApps:YES];
 
 	self.lastFrameTime = getTime();
+	color_space = CGColorSpaceCreateDeviceRGB();
 
 	[NSTimer scheduledTimerWithTimeInterval:1.0 / 60.0
 	 target:self
@@ -120,32 +120,15 @@ double getTime(void)
 	module.app_update(&env);
 	self.inputUsed = true;
 
-	// Create a new NSBitmapImageRep with the updated buffer
-	uint32_t pitch = width * sizeof(uint32_t);
-	uint8_t *buffer = env.buffer;
-
-	self.imageRep =
-	    [[NSBitmapImageRep alloc] initWithBitmapDataPlanes:&buffer
-	     pixelsWide:width
-	     pixelsHigh:height
-	     bitsPerSample:8
-	     samplesPerPixel:4
-	     hasAlpha:YES
-	     isPlanar:NO
-	     colorSpaceName:NSDeviceRGBColorSpace
-	     bytesPerRow:pitch
-	     bitsPerPixel:32];
-
-	// Releasing old images
-	[self.image release];
-	[self.imageRep release];
-
-	// Update the NSImage with the new representation
-	self.image = [[NSImage alloc] initWithSize:NSMakeSize(width, height)];
-	[self.image addRepresentation:self.imageRep];
-
-	// Update the layer contents with the new image
-	self.window.contentView.layer.contents = self.image;
+	// Present the framebuffer, pixels are 0xAARRGGBB
+	size_t pitch = width * sizeof(uint32_t);
+	CGDataProviderRef provider = CGDataProviderCreateWithData(NULL, env.buffer, pitch * height, NULL);
+	CGImageRef frame = CGImageCreate(width, height, 8, 32, pitch, color_space,
+	                                 kCGBitmapByteOrder32Little | kCGImageAlphaFirst,
+	                                 provider, NULL, false, kCGRenderingIntentDefault);
+	self.window.contentView.layer.contents = (id)frame;
+	CGImageRelease(frame);
+	CGDataProviderRelease(provider);
 	self.lastFrameTime = currentFrameTime;
 
 	[self resetInput];

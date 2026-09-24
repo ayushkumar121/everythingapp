@@ -73,8 +73,8 @@ export void app_init(Env* env)
 					.h = 50,
 				},
 			},
-			.background_color = COLOR_HEX(0xB19ABB60),
-			.active_color = COLOR_HEX(0xBBBBBB60),
+			.background_color = 0x60B19ABBu,
+			.active_color = 0x60BBBBBBu,
 			.border_radius = 8.0f,
 		});
 
