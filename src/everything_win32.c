@@ -115,6 +115,7 @@ LRESULT CALLBACK WndProc(
 	{
 		env.mouse_right_down = true;
 	}
+	break;
 
 	case WM_RBUTTONUP:
 	{

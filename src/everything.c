@@ -62,8 +62,8 @@ export void app_init(Env* env)
 					.h = 50,
 				},
 			},
-			.background_color = (Color){.rgba = 0x60BB9AB1},
-			.active_color = (Color){.rgba = 0x60BBBBBB},
+			.background_color = COLOR_HEX(0xB19ABB60),
+			.active_color = COLOR_HEX(0xBBBBBB60),
 			.border_radius = 8.0f,
 		});
 

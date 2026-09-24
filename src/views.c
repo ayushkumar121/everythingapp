@@ -95,7 +95,7 @@ void draw_scroll_view(View* view, Vec4 rect, Env *env)
 		}
 	}
 
-	draw_rect(image, rect, (Color){.rgba = 0X50AAAAAA});
+	draw_rect(image, rect, COLOR_HEX(0xAAAAAA50));
 
 	Vec4 scroll_bar;
 	int scroll_bar_button_size;
@@ -118,7 +118,7 @@ void draw_scroll_view(View* view, Vec4 rect, Env *env)
 		scroll_bar_button_size = scroll_bar.h / view->children.length;
 	}
 
-	draw_rect(image, scroll_bar, (Color){.rgba=0X60EEEEEE});
+	draw_rect(image, scroll_bar, COLOR_HEX(0xEEEEEE60));
 
 	Vec4 scroll_bar_button;
 	if (scroll_view->axis == DIRECTION_HORIZONTAL)

@@ -4,40 +4,49 @@
 #include "basic.h"
 #include <stdint.h>
 
-typedef union
+// Matches framebuffer byte order
+#if defined(_WIN32) || defined(__linux__)
+PACK(typedef struct
 {
-#ifdef _WIN32
-	PACK(struct
-	{
-		uint8_t b;
-		uint8_t g;
-		uint8_t r;
-		uint8_t a;
-	});
+	uint8_t b;
+	uint8_t g;
+	uint8_t r;
+	uint8_t a;
+})
+Color;
 #else
-	PACK(struct
-	{
-		uint8_t r;
-		uint8_t g;
-		uint8_t b;
-		uint8_t a;
-	});
+PACK(typedef struct
+{
+	uint8_t r;
+	uint8_t g;
+	uint8_t b;
+	uint8_t a;
+})
+Color;
 #endif
-	uint32_t rgba;
-} Color;
 
-#define COLOR_TRANSPARENT  (Color){.rgba = 0X0}
-#define COLOR_RED  (Color){.rgba = 0XFF0000FF}
-#define COLOR_GREEN  (Color){.rgba = 0XFF00FF00}
-#define COLOR_MAGENTA  (Color){.rgba = 0XFFFF00FF}
-#define COLOR_WHITE  (Color){.rgba = 0XFFFFFFFF}
-#define COLOR_BLACK  (Color){.rgba = 0XFF000000}
-#define COLOR_GRAY  (Color){.rgba = 0XFF666666}
-#define COLOR_BLUE  (Color){.rgba = 0XFF0000FF}
-#define COLOR_CYAN  (Color){.rgba = 0XFF00FFFF}
-#define COLOR_ORANGE  (Color){.rgba = 0xFFA500FF}
-#define COLOR_PURPLE  (Color){.rgba = 0xFF00FF00}
-#define COLOR_YELLOW  (Color){.rgba = 0xFFFF00FF}
+#define COLOR_RGBA(red, green, blue, alpha) \
+	((Color){.r = (red), .g = (green), .b = (blue), .a = (alpha)})
+
+// 0xRRGGBBAA
+#define COLOR_HEX(hex)                      \
+	COLOR_RGBA(((uint32_t)(hex) >> 24) & 0xFF, \
+	           ((uint32_t)(hex) >> 16) & 0xFF, \
+	           ((uint32_t)(hex) >> 8) & 0xFF,  \
+	           (uint32_t)(hex) & 0xFF)
+
+#define COLOR_TRANSPARENT  COLOR_HEX(0x00000000)
+#define COLOR_RED  COLOR_HEX(0xFF0000FF)
+#define COLOR_GREEN  COLOR_HEX(0x00FF00FF)
+#define COLOR_MAGENTA  COLOR_HEX(0xFF00FFFF)
+#define COLOR_WHITE  COLOR_HEX(0xFFFFFFFF)
+#define COLOR_BLACK  COLOR_HEX(0x000000FF)
+#define COLOR_GRAY  COLOR_HEX(0x666666FF)
+#define COLOR_BLUE  COLOR_HEX(0x0000FFFF)
+#define COLOR_CYAN  COLOR_HEX(0x00FFFFFF)
+#define COLOR_ORANGE  COLOR_HEX(0xFFA500FF)
+#define COLOR_PURPLE  COLOR_HEX(0x800080FF)
+#define COLOR_YELLOW  COLOR_HEX(0xFFFF00FF)
 
 typedef union
 {

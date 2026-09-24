@@ -95,7 +95,7 @@ Color layer_color(Color bottom, Color top)
     };
 }
 
-inline Color get_pixel(Image image, int x, int y)
+static inline Color get_pixel(Image image, int x, int y)
 {
 	assert(image.pixels != NULL);
 
@@ -105,7 +105,7 @@ inline Color get_pixel(Image image, int x, int y)
 	return image.pixels[y * image.width + x];
 }
 
-inline void put_pixel(Image image, int x, int y, Color color)
+static inline void put_pixel(Image image, int x, int y, Color color)
 {
 	assert(image.pixels != NULL);
 
@@ -751,8 +751,8 @@ void draw_text_bdf(Image image, Font font, const char *text, int size, Vec2 posi
 				}
 
 				float coverage_ratio = (float)coverage / (samples * samples);
-				Color base = get_pixel(image, x + gx + x_offset, y + gy + y_offset);
-				Color color = mix_color(base, text_color, coverage_ratio);
+				Color color = text_color;
+				color.a = (uint8_t)(text_color.a * coverage_ratio);
 				put_pixel(image, x + gx + x_offset, y + gy + y_offset, color);
 			}
 		}
