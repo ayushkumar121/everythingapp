@@ -146,7 +146,7 @@ bool file_needs_rebuild(char* binary_path, char** src_files, size_t src_files_le
 
 #ifdef _WIN32
 typedef HANDLE Thread;
-#define INVALID_PROCESS NULL
+#define INVALID_THREAD NULL
 #else
 typedef pthread_t Thread;
 #define INVALID_THREAD 0
@@ -531,12 +531,12 @@ Thread thread_create(void (*func)(void*), void* arg)
 	if (thread == NULL)
 	{
 		fprintf(stderr, "ERROR: Failed to create thread\n");
-		return INVALID_PROCESS;
+		return INVALID_THREAD;
 	}
 	return thread;
 #else
 	pthread_t thread;
-    if (pthread_create(&thread, NULL, (void (*)(void*))func, arg) != 0)
+    if (pthread_create(&thread, NULL, (void *(*)(void *))(void (*)(void))func, arg) != 0)
     {
         fprintf(stderr, "ERROR: Failed to create thread\n");
         return INVALID_THREAD;
