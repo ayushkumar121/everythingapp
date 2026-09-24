@@ -28,6 +28,8 @@ double getTime(void)
 @interface AppDelegate : NSObject <NSApplicationDelegate, NSWindowDelegate>
 
 @property bool inputUsed;
+@property bool leftReleased;
+@property bool rightReleased;
 @property double lastFrameTime;
 
 @property(nonatomic, strong) NSWindow *window;
@@ -64,7 +66,9 @@ double getTime(void)
 	 userInfo:nil
 	 repeats:YES];
 
-	int inputEvents = NSEventMaskKeyDown | NSEventMaskMouseMoved | NSEventMaskLeftMouseDown | NSEventMaskRightMouseDown;
+	NSEventMask inputEvents = NSEventMaskKeyDown | NSEventMaskMouseMoved | NSEventMaskScrollWheel
+	                          | NSEventMaskLeftMouseDown | NSEventMaskLeftMouseUp | NSEventMaskLeftMouseDragged
+	                          | NSEventMaskRightMouseDown | NSEventMaskRightMouseUp | NSEventMaskRightMouseDragged;
 	[NSEvent addLocalMonitorForEventsMatchingMask:inputEvents handler:^NSEvent *(NSEvent *event)
 	{
 		[self handleInput:event];
@@ -136,13 +140,10 @@ double getTime(void)
 
 - (void)handleInput:(NSEvent *)event
 {
-	env.key_down = event.type == NSEventTypeKeyDown;
-	env.mouse_left_down = event.type == NSEventTypeLeftMouseDown;
-	env.mouse_right_down = event.type == NSEventTypeRightMouseDown;
-	env.mouse_moved = event.type == NSEventTypeMouseMoved;
-
-	if (env.key_down)
+	switch (event.type)
 	{
+	case NSEventTypeKeyDown:
+		env.key_down = true;
 		if (event.keyCode == 96)
 		{
 			AppStateHandle handle = module.app_pre_reload();
@@ -150,11 +151,45 @@ double getTime(void)
 			module.app_post_reload(handle);
 			module.app_init(&env);
 		}
-
 		env.key_code = event.keyCode;
+		break;
+
+	// Releases are applied after the frame so a quick click is still seen
+	case NSEventTypeLeftMouseDown:
+		env.mouse_left_down = true;
+		self.leftReleased = false;
+		break;
+	case NSEventTypeLeftMouseUp:
+		self.leftReleased = true;
+		break;
+	case NSEventTypeRightMouseDown:
+		env.mouse_right_down = true;
+		self.rightReleased = false;
+		break;
+	case NSEventTypeRightMouseUp:
+		self.rightReleased = true;
+		break;
+
+	case NSEventTypeMouseMoved:
+	case NSEventTypeLeftMouseDragged:
+	case NSEventTypeRightMouseDragged:
+		env.mouse_moved = true;
+		break;
+
+	case NSEventTypeScrollWheel:
+	{
+		// Trackpads report pixels, mouse wheels report lines
+		float scale = event.hasPreciseScrollingDeltas ? 1.0f : SCROLL_LINE_HEIGHT;
+		env.scroll_x += event.scrollingDeltaX * scale;
+		env.scroll_y += event.scrollingDeltaY * scale;
+	}
+	break;
+
+	default:
+		break;
 	}
 
-	if (env.mouse_left_down || env.mouse_right_down || env.mouse_moved)
+	if (event.type != NSEventTypeKeyDown)
 	{
 		NSPoint mouseLoc = [event locationInWindow];
 		double screenHeight = self.window.contentView.bounds.size.height;
@@ -172,9 +207,20 @@ double getTime(void)
 	if (!self.inputUsed) return;
 
 	env.key_down = false;
-	env.mouse_left_down = false;
-	env.mouse_right_down = false;
 	env.mouse_moved = false;
+	env.scroll_x = 0;
+	env.scroll_y = 0;
+
+	if (self.leftReleased)
+	{
+		env.mouse_left_down = false;
+		self.leftReleased = false;
+	}
+	if (self.rightReleased)
+	{
+		env.mouse_right_down = false;
+		self.rightReleased = false;
+	}
 }
 
 @end

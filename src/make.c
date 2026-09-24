@@ -1,6 +1,8 @@
 #define BASIC_IMPLEMENTATION
 #include "basic.h"
 
+#include <time.h>
+
 void compile_self(int argc, char **argv);
 void compile_library(void);
 void compile_executable(void);
@@ -103,12 +105,18 @@ void compile_library(void)
         array_append(&cmd, "/DLL");
         array_append(&cmd, "/Zi");
         array_append(&cmd, "/O2");
-        for (size_t i = 0; i < src_files_count; i++)
+        for (int i = 0; i < src_files_count; i++)
         {
             array_append(&cmd, src_files[i]);
         }
         array_append(&cmd, "/Fe:");
         array_append(&cmd, lib_name);
+
+        // A debugger locks the loaded DLL's PDB, so every build gets a fresh one
+        static char pdb_flag[64];
+        snprintf(pdb_flag, sizeof(pdb_flag), "/PDB:everything_%lld.pdb", (long long)time(NULL));
+        array_append(&cmd, "/link");
+        array_append(&cmd, pdb_flag);
     #else
         array_append(&cmd, "cc");
         array_append(&cmd, "-Wall");

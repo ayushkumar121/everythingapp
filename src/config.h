@@ -5,3 +5,4 @@
 #define MIN_HEIGHT 200
 #define INIT_WIDTH 1200
 #define INIT_HEIGHT 800
+#define SCROLL_LINE_HEIGHT 20

@@ -30,7 +30,7 @@ static void draw_view_clipped(View* view, Vec4 clip, Env *env)
 		view->draw(view, rect, clip, env);
 	}
 
-	Vec2 child_offset = { .x = rect.x, .y = rect.y };
+	Vec2 child_offset = { .x = rect.x - view->content_offset.x, .y = rect.y - view->content_offset.y };
 	for (size_t i=0; i < view->children.length; i++)
 	{
 		View* child = view->children.items[i];
@@ -65,98 +65,103 @@ void destroy_view(View* view)
 }
 
 #define SCROLL_BAR_THICKNESS 10
+#define SCROLL_THUMB_MIN_SIZE 20
+
+static float scroll_content_size(ScrollView* scroll_view)
+{
+	float size = 0.0f;
+	for (size_t i = 0; i < scroll_view->base.children.length; i++)
+	{
+		Vec4 child = scroll_view->base.children.items[i]->rect;
+		if (scroll_view->axis == DIRECTION_HORIZONTAL)
+		{
+			size = fmaxf(size, child.x + child.w);
+		}
+		else
+		{
+			size = fmaxf(size, child.y + child.h);
+		}
+	}
+	return size;
+}
 
 void draw_scroll_view(View* view, Vec4 rect, Vec4 clip, Env *env)
 {
 	ScrollView* scroll_view = (ScrollView*) view;
 	Image image = image_from_env(env);
+	const bool horizontal = scroll_view->axis == DIRECTION_HORIZONTAL;
 
-	float total_scroll = 0.0f;
-	float item_size = 0.0f;
-	for (size_t i = 0; i < scroll_view->base.children.length; i++)
+	const float viewport = horizontal ? rect.w : rect.h;
+	const float content = scroll_content_size(scroll_view);
+	const float max_scroll = fmaxf(content - viewport, 0.0f);
+
+	Vec4 scroll_bar;
+	if (horizontal)
 	{
-		View* child = scroll_view->base.children.items[i];
-		if (scroll_view->axis == DIRECTION_HORIZONTAL)
-		{
-			total_scroll += child->rect.w;
-			item_size = fmaxf(item_size, child->rect.w);
-		}
-		else
-		{
-			total_scroll += child->rect.h;
-			item_size = fmaxf(item_size, child->rect.h);
-		}
+		scroll_bar = (Vec4){ .x = rect.x, .y = rect.y + rect.h - SCROLL_BAR_THICKNESS, .w = rect.w, .h = SCROLL_BAR_THICKNESS };
+	}
+	else
+	{
+		scroll_bar = (Vec4){ .x = rect.x + rect.w - SCROLL_BAR_THICKNESS, .y = rect.y, .w = SCROLL_BAR_THICKNESS, .h = rect.h };
+	}
+
+	const float track = horizontal ? scroll_bar.w : scroll_bar.h;
+	float thumb_size = track;
+	if (content > viewport)
+	{
+		thumb_size = fmaxf(track * viewport / content, fminf(SCROLL_THUMB_MIN_SIZE, track));
+	}
+
+	Vec2 mouse_pos = mouse_position(env);
+	if (inside_rect(mouse_pos, clip))
+	{
+		scroll_view->scroll -= horizontal ? env->scroll_x : env->scroll_y;
+	}
+
+	if (!env->mouse_left_down)
+	{
+		scroll_view->is_dragging = false;
+	}
+	else if (inside_rect(mouse_pos, scroll_bar) && inside_rect(mouse_pos, clip))
+	{
+		scroll_view->is_dragging = true;
+	}
+
+	if (scroll_view->is_dragging && track > thumb_size)
+	{
+		// Centre the thumb on the mouse
+		float mouse = horizontal ? mouse_pos.x - scroll_bar.x : mouse_pos.y - scroll_bar.y;
+		scroll_view->scroll = (mouse - thumb_size / 2) / (track - thumb_size) * max_scroll;
+	}
+
+	scroll_view->scroll = clamp(scroll_view->scroll, 0.0f, max_scroll);
+	if (horizontal)
+	{
+		view->content_offset = (Vec2){ .x = scroll_view->scroll };
+	}
+	else
+	{
+		view->content_offset = (Vec2){ .y = scroll_view->scroll };
 	}
 
 	draw_rect(image, rect, 0x50AAAAAAu, &clip);
-
-	Vec4 scroll_bar;
-	int scroll_bar_button_size;
-	if (scroll_view->axis == DIRECTION_HORIZONTAL)
-	{
-		scroll_bar.x = rect.x;
-		scroll_bar.y = rect.y + rect.h - SCROLL_BAR_THICKNESS;
-		scroll_bar.w = rect.w;
-		scroll_bar.h = SCROLL_BAR_THICKNESS;
-
-		scroll_bar_button_size = scroll_bar.w / view->children.length;
-	}
-	else
-	{
-		scroll_bar.x = rect.x + rect.w - SCROLL_BAR_THICKNESS;
-		scroll_bar.y = rect.y;
-		scroll_bar.w = SCROLL_BAR_THICKNESS;
-		scroll_bar.h = rect.h;
-
-		scroll_bar_button_size = scroll_bar.h / view->children.length;
-	}
+	if (max_scroll <= 0.0f) return;
 
 	draw_rect(image, scroll_bar, 0x60EEEEEEu, &clip);
 
-	Vec4 scroll_bar_button;
-	if (scroll_view->axis == DIRECTION_HORIZONTAL)
+	float thumb_pos = scroll_view->scroll / max_scroll * (track - thumb_size);
+	Vec4 thumb = scroll_bar;
+	if (horizontal)
 	{
-		scroll_bar_button.x = rect.x + clamp(scroll_view->scroll*scroll_bar.w, 0, rect.w - scroll_bar_button_size);
-		scroll_bar_button.y = rect.y + rect.h - SCROLL_BAR_THICKNESS;
-		scroll_bar_button.w = scroll_bar_button_size;
-		scroll_bar_button.h = SCROLL_BAR_THICKNESS;
+		thumb.x += thumb_pos;
+		thumb.w = thumb_size;
 	}
 	else
 	{
-		scroll_bar_button.x = rect.x + rect.w - SCROLL_BAR_THICKNESS;
-		scroll_bar_button.y = rect.y + clamp(scroll_view->scroll*scroll_bar.h, 0, rect.h - scroll_bar_button_size);
-		scroll_bar_button.w = SCROLL_BAR_THICKNESS;
-		scroll_bar_button.h = scroll_bar_button_size;
+		thumb.y += thumb_pos;
+		thumb.h = thumb_size;
 	}
-
-	Color scroll_bar_color = COLOR_RED;
-	Vec2 mouse_pos = mouse_position(env);
-
-	if (inside_rect(mouse_pos, scroll_bar) && env->mouse_left_down)
-	{
-		if (scroll_view->axis == DIRECTION_HORIZONTAL)
-		{
-			float scroll = (env->mouse_x - rect.x - scroll_bar_button_size) / scroll_bar.w;
-			for (size_t i = 0; i < scroll_view->base.children.length; i++)
-			{
-				View* child = scroll_view->base.children.items[i];
-				child->rect.x += (scroll_view->scroll - scroll) * (total_scroll - rect.w + item_size);
-			}
-			scroll_view->scroll = scroll;
-		}
-		else
-		{
-			float scroll = (env->mouse_y - rect.y - scroll_bar_button_size) / scroll_bar.h;
-			for (size_t i = 0; i < scroll_view->base.children.length; i++)
-			{
-				View* child = scroll_view->base.children.items[i];
-				child->rect.y += (scroll_view->scroll - scroll) * (total_scroll - rect.h + item_size);
-			}
-			scroll_view->scroll = scroll;
-		}
-	}
-
-	draw_rect(image, scroll_bar_button, scroll_bar_color, &clip);
+	draw_rect(image, thumb, COLOR_RED, &clip);
 }
 
 ScrollView* new_scroll_view(ScrollViewArgs* args)

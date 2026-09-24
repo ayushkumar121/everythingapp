@@ -20,6 +20,8 @@
 #endif
 
 #define unused(x) ((void)(x))
+// C23 <stddef.h> defines its own unreachable()
+#undef unreachable
 #define unreachable() assert(false && "Unreachable code")
 #define countof(x) (sizeof(x) / sizeof((x)[0]))
 
@@ -527,7 +529,7 @@ Thread thread_create(void (*func)(void*), void* arg)
 {
 #ifdef _WIN32
 	DWORD thread_id;
-	HANDLE thread = CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE)func, arg, 0, &thread_id);
+	HANDLE thread = CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE)(void (*)(void))func, arg, 0, &thread_id);
 	if (thread == NULL)
 	{
 		fprintf(stderr, "ERROR: Failed to create thread\n");

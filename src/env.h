@@ -20,6 +20,10 @@ typedef struct
 	bool mouse_moved;
 	int mouse_x;
 	int mouse_y;
+
+	// Pixels scrolled this frame, positive moves content right / down
+	float scroll_x;
+	float scroll_y;
 } Env;
 
 #endif

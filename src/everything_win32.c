@@ -32,6 +32,9 @@ int WINAPI WinMain(
 	LPSTR lpCmdLine,
 	int nShowCmd)
 {
+	(void)hPrevInstance;
+	(void)lpCmdLine;
+
 	load_module(&module, "everything.dll");
 	module.app_load();
 
@@ -123,6 +126,36 @@ LRESULT CALLBACK WndProc(
 	}
 	break;
 
+	case WM_KEYDOWN:
+	{
+		env.key_down = true;
+		env.key_code = wParam;
+
+		// Bit 30 is set for auto-repeat while the key is held
+		bool repeat = (lParam & (1 << 30)) != 0;
+		if (wParam == VK_F5 && !repeat)
+		{
+			AppStateHandle handle = module.app_pre_reload();
+			load_module(&module, "everything.dll");
+			module.app_post_reload(handle);
+			module.app_init(&env);
+		}
+	}
+	break;
+
+	case WM_MOUSEWHEEL:
+	case WM_MOUSEHWHEEL:
+	{
+		UINT lines = 3;
+		SystemParametersInfo(SPI_GETWHEELSCROLLLINES, 0, &lines, 0);
+		float pixels = (float)GET_WHEEL_DELTA_WPARAM(wParam) / WHEEL_DELTA * lines * SCROLL_LINE_HEIGHT;
+
+		// Wheel up moves content down, tilt right moves content left
+		if (uMsg == WM_MOUSEWHEEL) env.scroll_y += pixels;
+		else env.scroll_x -= pixels;
+	}
+	break;
+
 	case WM_SIZE:
 	{
 		RECT rect;
@@ -190,6 +223,10 @@ void UpdateBuffer(void)
 	{
 		module.app_update(&env);
 	}
+
+	env.key_down = false;
+	env.scroll_x = 0;
+	env.scroll_y = 0;
 
 	lastFrameTime = startTime;
 }

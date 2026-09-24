@@ -38,6 +38,8 @@ double last_frame_time = 0.0;
 bool window_should_close = false;
 bool input_used = false;
 bool app_initialised = false;
+bool left_released = false;
+bool right_released = false;
 
 Env env = {0};
 AppModule module = {0};
@@ -119,9 +121,21 @@ void reset_input()
 	if (!input_used) return;
 
 	env.key_down = false;
-	env.mouse_left_down = false;
-	env.mouse_right_down = false;
 	env.mouse_moved = false;
+	env.scroll_x = 0;
+	env.scroll_y = 0;
+
+	// Releases are applied after the frame so a quick click is still seen
+	if (left_released)
+	{
+		env.mouse_left_down = false;
+		left_released = false;
+	}
+	if (right_released)
+	{
+		env.mouse_right_down = false;
+		right_released = false;
+	}
 }
 
 void render_frame(void)
@@ -203,8 +217,9 @@ static void pointer_motion(void *data,
 	(void)data;
 	(void)wl_pointer;
 	(void)time;
-	env.mouse_x = surface_x;
-	env.mouse_y = surface_y;
+	env.mouse_x = wl_fixed_to_int(surface_x);
+	env.mouse_y = wl_fixed_to_int(surface_y);
+	env.mouse_moved = true;
 }
 
 static void pointer_button(void *data,
@@ -218,10 +233,18 @@ static void pointer_button(void *data,
 	(void)wl_pointer;
 	(void)serial;
 	(void)time;
-	(void)state;
 
-	env.mouse_left_down = button == BTN_LEFT;
-	env.mouse_right_down = button == BTN_RIGHT;
+	bool pressed = state == WL_POINTER_BUTTON_STATE_PRESSED;
+	if (button == BTN_LEFT)
+	{
+		if (pressed) env.mouse_left_down = true;
+		left_released = !pressed;
+	}
+	else if (button == BTN_RIGHT)
+	{
+		if (pressed) env.mouse_right_down = true;
+		right_released = !pressed;
+	}
 }
 
 static void pointer_axis(void *data,
@@ -233,8 +256,10 @@ static void pointer_axis(void *data,
 	(void)data;
 	(void)wl_pointer;
 	(void)time;
-	(void)axis;
-	(void)value;
+
+	// Positive values scroll down / right, which moves content up / left
+	if (axis == WL_POINTER_AXIS_VERTICAL_SCROLL) env.scroll_y -= wl_fixed_to_double(value);
+	else if (axis == WL_POINTER_AXIS_HORIZONTAL_SCROLL) env.scroll_x -= wl_fixed_to_double(value);
 }
 
 static void pointer_frame(void *data,
@@ -312,15 +337,118 @@ struct wl_pointer_listener pointer_listener =
 	.axis_relative_direction = pointer_axis_relative_direction,
 };
 
+static void keyboard_keymap(void *data,
+                            struct wl_keyboard *wl_keyboard,
+                            uint32_t format,
+                            int32_t fd,
+                            uint32_t size)
+{
+	(void)data;
+	(void)wl_keyboard;
+	(void)format;
+	(void)size;
+
+	// Key codes are passed through as raw evdev codes, so the keymap is not needed
+	close(fd);
+}
+
+static void keyboard_enter(void *data,
+                           struct wl_keyboard *wl_keyboard,
+                           uint32_t serial,
+                           struct wl_surface *surface,
+                           struct wl_array *keys)
+{
+	(void)data;
+	(void)wl_keyboard;
+	(void)serial;
+	(void)surface;
+	(void)keys;
+}
+
+static void keyboard_leave(void *data,
+                           struct wl_keyboard *wl_keyboard,
+                           uint32_t serial,
+                           struct wl_surface *surface)
+{
+	(void)data;
+	(void)wl_keyboard;
+	(void)serial;
+	(void)surface;
+}
+
+static void keyboard_key(void *data,
+                         struct wl_keyboard *wl_keyboard,
+                         uint32_t serial,
+                         uint32_t time,
+                         uint32_t key,
+                         uint32_t state)
+{
+	(void)data;
+	(void)wl_keyboard;
+	(void)serial;
+	(void)time;
+
+	if (state != WL_KEYBOARD_KEY_STATE_PRESSED) return;
+
+	env.key_down = true;
+	env.key_code = key;
+
+	if (key == KEY_F5)
+	{
+		AppStateHandle handle = module.app_pre_reload();
+		load_module(&module, "./everything.so");
+		module.app_post_reload(handle);
+		module.app_init(&env);
+	}
+}
+
+static void keyboard_modifiers(void *data,
+                               struct wl_keyboard *wl_keyboard,
+                               uint32_t serial,
+                               uint32_t mods_depressed,
+                               uint32_t mods_latched,
+                               uint32_t mods_locked,
+                               uint32_t group)
+{
+	(void)data;
+	(void)wl_keyboard;
+	(void)serial;
+	(void)mods_depressed;
+	(void)mods_latched;
+	(void)mods_locked;
+	(void)group;
+}
+
+static void keyboard_repeat_info(void *data,
+                                 struct wl_keyboard *wl_keyboard,
+                                 int32_t rate,
+                                 int32_t delay)
+{
+	(void)data;
+	(void)wl_keyboard;
+	(void)rate;
+	(void)delay;
+}
+
+struct wl_keyboard_listener keyboard_listener =
+{
+	.keymap = keyboard_keymap,
+	.enter = keyboard_enter,
+	.leave = keyboard_leave,
+	.key = keyboard_key,
+	.modifiers = keyboard_modifiers,
+	.repeat_info = keyboard_repeat_info,
+};
+
 void seat_capabilities_handler(void *data, struct wl_seat *seat,
                                uint32_t capabilities)
 {
 	(void)data;
 
 	bool has_pointer = capabilities & WL_SEAT_CAPABILITY_POINTER;
-	//bool has_keyboard = capabilities & WL_SEAT_CAPABILITY_KEYBOARD;
+	bool has_keyboard = capabilities & WL_SEAT_CAPABILITY_KEYBOARD;
 
-	if (has_pointer)
+	if (has_pointer && pointer == NULL)
 	{
 		pointer = wl_seat_get_pointer(seat);
 		wl_pointer_add_listener(pointer,
@@ -331,20 +459,18 @@ void seat_capabilities_handler(void *data, struct wl_seat *seat,
 		wl_pointer_release(pointer);
 		pointer = NULL;
 	}
-	else
-	{
-		fprintf(stderr, "ERROR: Device does not have a pointer\n");
-	}
 
-	/*
-	    if (has_keyboard) {
-	        keyboard = wl_seat_get_keyboard(seat);
-	        wl_keyboard_add_listener(keyboard,
-	        	&keyboard_listener, NULL);
-	    } else {
-	        fprintf(stderr, "ERROR: Device does not have a keyboard\n");
-	    }
-	*/
+	if (has_keyboard && keyboard == NULL)
+	{
+		keyboard = wl_seat_get_keyboard(seat);
+		wl_keyboard_add_listener(keyboard,
+		                         &keyboard_listener, NULL);
+	}
+	else if (!has_keyboard && keyboard != NULL)
+	{
+		wl_keyboard_release(keyboard);
+		keyboard = NULL;
+	}
 }
 
 void seat_name_handler(void *data, struct wl_seat *seat, const char *name)

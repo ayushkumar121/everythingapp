@@ -13,6 +13,7 @@ typedef struct View
 {
 	Vec4 rect;
 	Vec2 offset;
+	Vec2 content_offset;
 	Vec4* padding;
 	Views children;
 	DrawFn draw;
@@ -35,7 +36,7 @@ typedef enum
 typedef struct
 {
 	View base;
-	float scroll;
+	float scroll; // pixels along axis
 	Axis axis;
 	bool is_dragging;
 } ScrollView;
