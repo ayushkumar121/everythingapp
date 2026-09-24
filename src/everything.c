@@ -16,6 +16,7 @@ typedef struct
 	View* view;
 	int width;
 	int height;
+	Image scaled_background;
 } AppState;
 
 AppState *state = NULL;
@@ -34,11 +35,21 @@ export void app_init(Env* env)
 	state->width = env->width;
 	state->height = env->height;
 
+	free_image(&state->scaled_background);
+	state->scaled_background = new_image(env->width, env->height);
+	clear_image(state->scaled_background, COLOR_WHITE);
+	draw_image(state->scaled_background, state->background_image, (Vec4){
+		.x = 0,
+		.y = 0,
+		.w = env->width,
+		.h = env->height,
+	}, NULL, NULL);
+
 	if (state->view != NULL)
 	{
 		destroy_view(state->view);
 	}
-	
+
 	ScrollView* scroll_view = new_scroll_view(&(ScrollViewArgs){
 		.base = (ViewArgs){
 			.rect = (Vec4) {
@@ -98,18 +109,12 @@ export void app_update(Env *env)
 	}
 
 	Image image = image_from_env(env);
-	clear_image(image, COLOR_WHITE);
-	draw_image(image, state->background_image, (Vec4){
-		.x = 0,
-		.y = 0,
-		.w = env->width,
-		.h = env->height,
-	}, NULL);
+	memcpy(image.pixels, state->scaled_background.pixels, image.width * image.height * sizeof(Color));
 	draw_view(state->view, env);
 
 	char fps[32];
 	snprintf(fps, 32, "FPS: %.2f", 1/env->delta_time);
-	draw_text(image, state->font, fps, 32, (Vec2){.x = env->width-200, .y = 50}, COLOR_GREEN);
+	draw_text(image, state->font, fps, 32, (Vec2){.x = env->width-200, .y = 50}, COLOR_GREEN, NULL);
 }
 
 export AppStateHandle app_pre_reload(void)
@@ -122,7 +127,9 @@ export AppStateHandle app_pre_reload(void)
 
 export void app_post_reload(AppStateHandle handle)
 {
+	// AppState may have grown between builds, so new fields go at the end
 	state = malloc(sizeof(AppState));
-	memcpy(state, handle.state, handle.size);
+	memset(state, 0, sizeof(AppState));
+	memcpy(state, handle.state, handle.size < sizeof(AppState) ? handle.size : sizeof(AppState));
 	free(handle.state);
 }

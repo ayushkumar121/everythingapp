@@ -19,17 +19,24 @@ Vec2 mouse_position(Env* env)
 	};
 }
 
-Env new_env(Env* env, int width, int height)
+static void draw_view_clipped(View* view, Vec4 clip, Env *env)
 {
-	assert (env != NULL);
-	Env new_env = *env;
-	new_env.width = width;
-	new_env.height = height;
-	size_t size = width * height * sizeof(Color);
-	new_env.buffer = malloc(size);
-	assert (new_env.buffer != NULL);
-	memset(new_env.buffer, 0, size);
-	return new_env;
+	Vec4 rect = v4_add_v2(view->rect, view->offset);
+	clip = rect_intersect(clip, rect);
+	if (clip.w <= 0 || clip.h <= 0) return;
+
+	if (view->draw != NULL)
+	{
+		view->draw(view, rect, clip, env);
+	}
+
+	Vec2 child_offset = { .x = rect.x, .y = rect.y };
+	for (size_t i=0; i < view->children.length; i++)
+	{
+		View* child = view->children.items[i];
+		child->offset = child_offset;
+		draw_view_clipped(child, clip, env);
+	}
 }
 
 void draw_view(View* view, Env *env)
@@ -37,22 +44,8 @@ void draw_view(View* view, Env *env)
 	assert(view != NULL);
 	assert(env != NULL);
 
-	Vec4 rect = v4_add_v2(view->rect, view->offset);
-	Env off_canvas = new_env(env, env->width, env->height);
-	if (view->draw != NULL)
-	{
-		view->draw(view, rect, &off_canvas);
-	}
-
-    Vec2 child_offset = { .x = rect.x, .y = rect.y };
-	for (size_t i=0; i < view->children.length; i++)
-	{
-		View* child = view->children.items[i];
-		child->offset = child_offset;
-		draw_view(child, &off_canvas);
-	}
-	draw_image(image_from_env(env), image_from_env(&off_canvas), rect, &rect);
-	free(off_canvas.buffer);
+	Vec4 window = { .x = 0, .y = 0, .w = env->width, .h = env->height };
+	draw_view_clipped(view, window, env);
 }
 
 void destroy_view(View* view)
@@ -73,7 +66,7 @@ void destroy_view(View* view)
 
 #define SCROLL_BAR_THICKNESS 10
 
-void draw_scroll_view(View* view, Vec4 rect, Env *env)
+void draw_scroll_view(View* view, Vec4 rect, Vec4 clip, Env *env)
 {
 	ScrollView* scroll_view = (ScrollView*) view;
 	Image image = image_from_env(env);
@@ -95,7 +88,7 @@ void draw_scroll_view(View* view, Vec4 rect, Env *env)
 		}
 	}
 
-	draw_rect(image, rect, COLOR_HEX(0xAAAAAA50));
+	draw_rect(image, rect, COLOR_HEX(0xAAAAAA50), &clip);
 
 	Vec4 scroll_bar;
 	int scroll_bar_button_size;
@@ -118,7 +111,7 @@ void draw_scroll_view(View* view, Vec4 rect, Env *env)
 		scroll_bar_button_size = scroll_bar.h / view->children.length;
 	}
 
-	draw_rect(image, scroll_bar, COLOR_HEX(0xEEEEEE60));
+	draw_rect(image, scroll_bar, COLOR_HEX(0xEEEEEE60), &clip);
 
 	Vec4 scroll_bar_button;
 	if (scroll_view->axis == DIRECTION_HORIZONTAL)
@@ -163,7 +156,7 @@ void draw_scroll_view(View* view, Vec4 rect, Env *env)
 		}
 	}
 
-	draw_rect(image, scroll_bar_button, scroll_bar_color);
+	draw_rect(image, scroll_bar_button, scroll_bar_color, &clip);
 }
 
 ScrollView* new_scroll_view(ScrollViewArgs* args)
@@ -177,11 +170,11 @@ ScrollView* new_scroll_view(ScrollViewArgs* args)
 	return view;
 }
 
-void draw_rectangle_view(View* view, Vec4 rect, Env *env)
+void draw_rectangle_view(View* view, Vec4 rect, Vec4 clip, Env *env)
 {
 	RectView* rect_view = (RectView*) view;
 	Image image = image_from_env(env);
-	draw_rect(image, rect, rect_view->color);
+	draw_rect(image, rect, rect_view->color, &clip);
 }
 
 RectView* new_rect_view(RectViewArgs* args)
@@ -195,7 +188,7 @@ RectView* new_rect_view(RectViewArgs* args)
 	return view;
 }
 
-void draw_text_view(View* view, Vec4 rect, Env *env)
+void draw_text_view(View* view, Vec4 rect, Vec4 clip, Env *env)
 {
 	TextView* text_view = (TextView*) view;
 	Image image = image_from_env(env);
@@ -209,7 +202,8 @@ void draw_text_view(View* view, Vec4 rect, Env *env)
 		{
 			.x = rect.x, .y = rect.y
 		},
-		text_view->text_color
+		text_view->text_color,
+		&clip
 	);
 
 }
@@ -228,13 +222,13 @@ TextView* new_text_view(TextViewArgs* args)
 	return view;
 }
 
-void draw_panel_view(View* view, Vec4 rect, Env *env)
+void draw_panel_view(View* view, Vec4 rect, Vec4 clip, Env *env)
 {
 	PanelView* panel_view = (PanelView*) view;
 	Image image = image_from_env(env);
 
 	Color color;
-	const bool is_mouse_over = inside_rect(mouse_position(env), rect);
+	const bool is_mouse_over = inside_rect(mouse_position(env), clip);
 	if (is_mouse_over)
 	{
 		color = panel_view->active_color;
@@ -244,7 +238,7 @@ void draw_panel_view(View* view, Vec4 rect, Env *env)
 		color = panel_view->background_color;
 	}
 
-	draw_rounded_rect(image, rect, color, panel_view->border_radius);
+	draw_rounded_rect(image, rect, color, panel_view->border_radius, &clip);
 }
 
 PanelView* new_panel_view(PanelViewArgs* args)

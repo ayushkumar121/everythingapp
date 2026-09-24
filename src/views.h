@@ -7,7 +7,7 @@
 typedef struct View	View;
 typedef ARRAY(View*) Views;
 
-typedef void (*DrawFn)(View* view, Vec4 rect, Env *env);
+typedef void (*DrawFn)(View* view, Vec4 rect, Vec4 clip, Env *env);
 
 typedef struct View
 {

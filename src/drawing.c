@@ -50,6 +50,44 @@ bool inside_rect(Vec2 p, Vec4 r)
     return (p.x >= r.x) && (p.x <= (r.x + r.w)) && (p.y >= r.y) && (p.y <= (r.y + r.h));
 }
 
+Vec4 rect_intersect(Vec4 a, Vec4 b)
+{
+	float left = fmaxf(a.x, b.x);
+	float top = fmaxf(a.y, b.y);
+	float right = fminf(a.x + a.w, b.x + b.w);
+	float bottom = fminf(a.y + a.h, b.y + b.h);
+
+	return (Vec4)
+	{
+		.x = left, .y = top, .w = fmaxf(right - left, 0.0f), .h = fmaxf(bottom - top, 0.0f)
+	};
+}
+
+// Half-open pixel range [x0, x1) x [y0, y1) of rect, limited to clip and the image
+typedef struct
+{
+	int x0;
+	int y0;
+	int x1;
+	int y1;
+} PixelBounds;
+
+static PixelBounds pixel_bounds(Image image, Vec4 rect, Vec4 *clip)
+{
+	if (clip != NULL)
+	{
+		rect = rect_intersect(rect, *clip);
+	}
+
+	return (PixelBounds)
+	{
+		.x0 = (int)fmaxf(floorf(rect.x), 0.0f),
+		.y0 = (int)fmaxf(floorf(rect.y), 0.0f),
+		.x1 = (int)fminf(ceilf(rect.x + rect.w), (float)image.width),
+		.y1 = (int)fminf(ceilf(rect.y + rect.h), (float)image.height),
+	};
+}
+
 Image image_from_env(Env* env)
 {
 	assert(env != NULL);
@@ -212,24 +250,32 @@ void clear_image(Image image, Color color)
 	}
 }
 
-void draw_rect(Image image, Vec4 rect, Color color)
+void draw_rect(Image image, Vec4 rect, Color color, Vec4 *clip)
 {
-	for (size_t y = rect.y; y < rect.y + rect.h; ++y)
+	PixelBounds b = pixel_bounds(image, rect, clip);
+
+	for (int y = b.y0; y < b.y1; ++y)
 	{
-		for (size_t x = rect.x; x < rect.x + rect.w; ++x)
+		for (int x = b.x0; x < b.x1; ++x)
 		{
 			put_pixel(image, x, y, color);
 		}
 	}
 }
 
-void draw_rounded_rect(Image image, Vec4 rect, Color color, float border_radius)
+void draw_rounded_rect(Image image, Vec4 rect, Color color, float border_radius, Vec4 *clip)
 {
 	float r_squared = border_radius * border_radius;
 
-	for (size_t cy = rect.y; cy <= rect.y + rect.h; ++cy)
+	// The outline includes the right and bottom edges
+	Vec4 outline = rect;
+	outline.w += 1;
+	outline.h += 1;
+	PixelBounds b = pixel_bounds(image, outline, clip);
+
+	for (int cy = b.y0; cy < b.y1; ++cy)
 	{
-		for (size_t cx = rect.x; cx <= rect.x + rect.w; ++cx)
+		for (int cx = b.x0; cx < b.x1; ++cx)
 		{
 			BorderCheckResult result = border_radius_check(rect, cx, cy, border_radius, r_squared);
 			if (result != OUTSIDE_BORDER)
@@ -500,7 +546,7 @@ typedef struct
 	Vec4 crop;
 } DrawImageThreadArgs;
 
-void draw_image(Image background, Image image, Vec4 rect, Vec4 *crop)
+void draw_image(Image background, Image image, Vec4 rect, Vec4 *crop, Vec4 *clip)
 {
 	assert(image.pixels != NULL);
 	assert(background.pixels != NULL);
@@ -521,17 +567,20 @@ void draw_image(Image background, Image image, Vec4 rect, Vec4 *crop)
 	const float sx = crop_rect.w / rect.w;
 	const float sy = crop_rect.h / rect.h;
 
-	for (int y = 0; y < rect.h; ++y)
-	{
-		for (int x = 0; x < rect.w; ++x)
-		{
-			const int ix = (int)(x * sx + crop_rect.x);
-			const int iy = (int)(y * sy + crop_rect.y);
+	PixelBounds b = pixel_bounds(background, rect, clip);
 
-			if (ix >= 0 && ix < image.width && iy >= 0 && iy < image.height)
+	for (int y = b.y0; y < b.y1; ++y)
+	{
+		const int iy = (int)((y - rect.y) * sy + crop_rect.y);
+		if (iy < 0 || iy >= image.height) continue;
+
+		for (int x = b.x0; x < b.x1; ++x)
+		{
+			const int ix = (int)((x - rect.x) * sx + crop_rect.x);
+
+			if (ix >= 0 && ix < image.width)
 			{
-				int k = iy * image.width + ix;
-				put_pixel(background, x + rect.x, y + rect.y, image.pixels[k]);
+				put_pixel(background, x, y, image.pixels[iy * image.width + ix]);
 			}
 		}
 	}
@@ -701,7 +750,7 @@ Vec2 measure_text(Font font, const char* text, int size)
 	};
 }
 
-void draw_text_bdf(Image image, Font font, const char *text, int size, Vec2 position, Color text_color)
+void draw_text_bdf(Image image, Font font, const char *text, int size, Vec2 position, Color text_color, Vec4 *clip)
 {
 	assert(font.data != NULL);
 
@@ -714,6 +763,8 @@ void draw_text_bdf(Image image, Font font, const char *text, int size, Vec2 posi
 	float scaling = (float)size / (float)font_bdf->size;
 	static int samples = 3;
 
+	PixelBounds b = pixel_bounds(image, (Vec4){.x = 0, .y = 0, .w = image.width, .h = image.height}, clip);
+
 	for (int i = 0; i < n; ++i)
 	{
 		char ch = text[i];
@@ -725,9 +776,16 @@ void draw_text_bdf(Image image, Font font, const char *text, int size, Vec2 posi
 		int x_offset = glyph.x_offset * scaling;
 		int y_offset = glyph.y_offset * scaling;
 
-		for (int gy = 0; gy < height; ++gy)
+		int left = x + x_offset;
+		int top = y + y_offset;
+		int gx0 = b.x0 > left ? b.x0 - left : 0;
+		int gy0 = b.y0 > top ? b.y0 - top : 0;
+		int gx1 = b.x1 - left < width ? b.x1 - left : width;
+		int gy1 = b.y1 - top < height ? b.y1 - top : height;
+
+		for (int gy = gy0; gy < gy1; ++gy)
 		{
-			for (int gx = 0; gx < width; ++gx)
+			for (int gx = gx0; gx < gx1; ++gx)
 			{
 				int coverage = 0;
 				for (int sy = 0; sy < samples; ++sy)
@@ -753,7 +811,7 @@ void draw_text_bdf(Image image, Font font, const char *text, int size, Vec2 posi
 				float coverage_ratio = (float)coverage / (samples * samples);
 				Color color = text_color;
 				color.a = (uint8_t)(text_color.a * coverage_ratio);
-				put_pixel(image, x + gx + x_offset, y + gy + y_offset, color);
+				put_pixel(image, left + gx, top + gy, color);
 			}
 		}
 
@@ -761,12 +819,12 @@ void draw_text_bdf(Image image, Font font, const char *text, int size, Vec2 posi
 	}
 }
 
-void draw_text(Image image, Font font, const char *text, int size, Vec2 position, Color text_color)
+void draw_text(Image image, Font font, const char *text, int size, Vec2 position, Color text_color, Vec4 *clip)
 {
 	switch (font.format)
 	{
 		case FONT_BDF:
-			draw_text_bdf(image, font, text, size, position, text_color);
+			draw_text_bdf(image, font, text, size, position, text_color, clip);
 			break;
 		default:
 			fprintf(stderr, "ERROR: Unsupported font format\n");

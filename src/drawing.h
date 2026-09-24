@@ -91,6 +91,7 @@ typedef struct
 float lerp(float a, float b, float t);
 float clamp(float x, float min, float max);
 bool inside_rect(Vec2 p, Vec4 r);
+Vec4 rect_intersect(Vec4 a, Vec4 b);
 
 Image image_from_env(Env* env);
 Env env_from_image(Image image);
@@ -103,7 +104,7 @@ Image duplicate_image(Image image);
 Image new_image(int width, int height);
 void load_image(Image *image, const char *filename);
 
-void draw_image(Image background, Image image, Vec4 rect, Vec4 *crop);
+void draw_image(Image background, Image image, Vec4 rect, Vec4 *crop, Vec4 *clip);
 void free_image(Image* image);
 void clear_image(Image image, Color color);
 
@@ -119,8 +120,8 @@ typedef union
 	Vec2 points[4];
 } BezierCurve;
 
-void draw_rect(Image image, Vec4 rect, Color color);
-void draw_rounded_rect(Image image, Vec4 rect, Color color, float border_radius);
+void draw_rect(Image image, Vec4 rect, Color color, Vec4 *clip);
+void draw_rounded_rect(Image image, Vec4 rect, Color color, float border_radius, Vec4 *clip);
 void draw_curve(Image image, BezierCurve curve, Color color);
 
 typedef enum
@@ -137,5 +138,5 @@ typedef struct
 
 void load_font(Font *font, const char *filename);
 Vec2 measure_text(Font font, const char* text, int size);
-void draw_text(Image image,  Font font, const char *text, int size, Vec2 position, Color text_color);
+void draw_text(Image image, Font font, const char *text, int size, Vec2 position, Color text_color, Vec4 *clip);
 void free_font(Font *font);
