@@ -75,8 +75,6 @@ Vec4 rect_intersect(Vec4 a, Vec4 b);
 Image image_from_env(Env* env);
 Env env_from_image(Image image);
 
-void blur_image(Image image);
-void fade_image(Image image, float opacity);
 Image scale_image(Image image, float sx, float sy);
 Image duplicate_image(Image image);
 

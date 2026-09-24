@@ -31,6 +31,12 @@
 #define export __attribute__((visibility("default")))
 #endif
 
+#ifdef _MSC_VER
+#define NOINLINE __declspec(noinline)
+#else
+#define NOINLINE __attribute__((noinline))
+#endif
+
 #define ARRAY_INIT_CAP 10
 
 #define ARRAY(T)     \

@@ -109,21 +109,48 @@ Env env_from_image(Image image)
 	};
 }
 
-Color layer_color(Color bottom, Color top)
+// Blend onto an opaque pixel: c = (top * a + bottom * (255 - a)) / 255, rounded.
+// Red and blue share one multiply since each fits in 16 bits.
+static inline Color blend_opaque(Color bottom, Color top)
 {
-	float top_alpha = (float) COLOR_A(top) / 255.0f;
-    float bottom_alpha = (float) COLOR_A(bottom) / 255.0f;
-    float out_alpha = top_alpha + bottom_alpha * (1.0f - top_alpha);
-    if (out_alpha == 0)
-    {
-        return COLOR_TRANSPARENT;
-    }
+	uint32_t a = COLOR_A(top);
+	uint32_t ia = 255 - a;
 
-    float r = ((float) COLOR_R(top) * top_alpha + (float) COLOR_R(bottom) * bottom_alpha * (1.0f - top_alpha)) / out_alpha;
-    float g = ((float) COLOR_G(top) * top_alpha + (float) COLOR_G(bottom) * bottom_alpha * (1.0f - top_alpha)) / out_alpha;
-    float b = ((float) COLOR_B(top) * top_alpha + (float) COLOR_B(bottom) * bottom_alpha * (1.0f - top_alpha)) / out_alpha;
+	uint32_t rb = (top & 0x00FF00FF) * a + (bottom & 0x00FF00FF) * ia + 0x00800080;
+	rb = ((rb + ((rb >> 8) & 0x00FF00FF)) >> 8) & 0x00FF00FF;
 
-    return COLOR_ARGB((uint8_t) (out_alpha * 255.0f), (uint8_t) r, (uint8_t) g, (uint8_t) b);
+	uint32_t g = (top & 0x0000FF00) * a + (bottom & 0x0000FF00) * ia + 0x00008000;
+	g = ((g + ((g >> 8) & 0x0000FF00)) >> 8) & 0x0000FF00;
+
+	return 0xFF000000u | rb | g;
+}
+
+// Kept out of line: inlined into put_pixel, the compiler blends every pixel even when it's opaque
+static NOINLINE Color layer_color(Color bottom, Color top)
+{
+	uint32_t top_alpha = COLOR_A(top);
+	uint32_t bottom_alpha = COLOR_A(bottom);
+
+	if (bottom_alpha == 255)
+	{
+		return blend_opaque(bottom, top);
+	}
+
+	// Channels are weighted by 255 * alpha so everything stays in integers
+	uint32_t top_weight = top_alpha * 255;
+	uint32_t bottom_weight = bottom_alpha * (255 - top_alpha);
+	uint32_t out_weight = top_weight + bottom_weight;
+	if (out_weight == 0)
+	{
+		return COLOR_TRANSPARENT;
+	}
+
+	uint32_t half = out_weight / 2;
+	uint32_t r = (COLOR_R(top) * top_weight + COLOR_R(bottom) * bottom_weight + half) / out_weight;
+	uint32_t g = (COLOR_G(top) * top_weight + COLOR_G(bottom) * bottom_weight + half) / out_weight;
+	uint32_t b = (COLOR_B(top) * top_weight + COLOR_B(bottom) * bottom_weight + half) / out_weight;
+
+	return COLOR_ARGB((out_weight + 127) / 255, r, g, b);
 }
 
 static inline Color get_pixel(Image image, int x, int y)
@@ -193,7 +220,18 @@ static void fill_span(Image image, int y, int x0, int x1, Color color)
 	}
 	else if (COLOR_A(color) > 0)
 	{
-		for (int x = x0; x < x1; ++x) row[x] = layer_color(row[x], color);
+		// Framebuffer rows are opaque, and then the blend is a loop the compiler vectorizes
+		Color alpha = 0xFF000000u;
+		for (int x = x0; x < x1; ++x) alpha &= row[x];
+
+		if (alpha == 0xFF000000u)
+		{
+			for (int x = x0; x < x1; ++x) row[x] = blend_opaque(row[x], color);
+		}
+		else
+		{
+			for (int x = x0; x < x1; ++x) row[x] = layer_color(row[x], color);
+		}
 	}
 }
 
@@ -279,67 +317,6 @@ PACK(typedef struct
 	uint32_t colors_important;
 })
 BMPInfoHeader;
-
-void blur_image(Image image)
-{
-	assert(image.pixels != NULL);
-
-	static int kernel_size = 3;
-	static float kernel[3][3] =
-	{
-		{1.0f/16.0f, 2.0f/16.0f, 1.0f/16.0f},
-		{2.0f/16.0f, 4.0f/16.0f, 2.0f/16.0f},
-		{1.0f/16.0f, 2.0f/16.0f, 1.0f/16.0f},
-	};
-
-	for (int y=0; y<image.height; ++y)
-	{
-		for (int x=0; x<image.width; ++x)
-		{
-			float r = 0.0f;
-			float g = 0.0f;
-			float b = 0.0f;
-			float a = 0.0f;
-
-			for (int ky=0; ky<kernel_size; ++ky)
-			{
-				for (int kx=0; kx<kernel_size; ++kx)
-				{
-					int px = x + kx - kernel_size / 2;
-					int py = y + ky - kernel_size / 2;
-
-					Color color = get_pixel(image, px, py);
-
-					r += COLOR_R(color) * kernel[ky][kx];
-					g += COLOR_G(color) * kernel[ky][kx];
-					b += COLOR_B(color) * kernel[ky][kx];
-					a += COLOR_A(color) * kernel[ky][kx];
-				}
-			}
-
-			r = clamp(r, 0.0f, 255.0f);
-			g = clamp(g, 0.0f, 255.0f);
-			b = clamp(b, 0.0f, 255.0f);
-
-			put_pixel(image, x, y, COLOR_ARGB((uint8_t)a, (uint8_t)r, (uint8_t)g, (uint8_t)b));
-		}
-	}
-}
-
-void fade_image(Image image, float opacity)
-{
-	assert(image.pixels != NULL);
-
-	for (int y=0; y<image.height; ++y)
-	{
-		for (int x=0; x<image.width; ++x)
-		{
-			Color color = get_pixel(image, x, y);
-			color = (color & 0x00FFFFFF) | ((uint32_t)((float)COLOR_A(color) * opacity) << 24);
-			put_pixel(image, x, y, color);
-		}
-	}
-}
 
 Image scale_image(Image image, float sx, float sy)
 {
