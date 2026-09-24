@@ -536,7 +536,7 @@ Thread thread_create(void (*func)(void*), void* arg)
 	return thread;
 #else
 	pthread_t thread;
-    if (pthread_create(&thread, NULL, (void* (*)(void*))func, arg) != 0)
+    if (pthread_create(&thread, NULL, (void (*)(void*))func, arg) != 0)
     {
         fprintf(stderr, "ERROR: Failed to create thread\n");
         return INVALID_THREAD;
