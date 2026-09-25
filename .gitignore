@@ -15,5 +15,3 @@
 *.exp
 *.lib
 everything
-build
-build.old

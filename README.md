@@ -18,20 +18,16 @@ My Attempt at a life organiser app
 
 ## Building
 
-This project includes a custom build system written in C. 
-To bootstrap the build system, use a standard C compiler. 
-Once bootstrapped, you can invoke the build system directly.
+The project builds with GNU make.
 
-After the initial build, the build system can rebuild itself if necessary.
-
-For Linux and Macos
 ```shell
-$ cc -o make src/make.c # Only required for bootstraping
-$ ./make
+$ make          # build the app library and executable
+$ make run      # build and start the app
+$ make lib      # rebuild only the library, then press F5 in the running app to hot reload
+$ make clean    # remove build outputs
 ```
 
-For Windows
-```shell
-$ cl.exe src/make.c # Only required for bootstraping
-$ .\make.exe
-```
+Linux needs the Wayland client development package (`libwayland-dev`).
+
+On Windows, run make from a Visual Studio developer prompt with a POSIX shell
+such as Git Bash or MSYS2, so `cl.exe` and `date` are both available.

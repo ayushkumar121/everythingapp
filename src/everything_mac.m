@@ -1,5 +1,6 @@
 #import <Cocoa/Cocoa.h>
 #import <Foundation/Foundation.h>
+#import <QuartzCore/QuartzCore.h>
 
 #include <stdio.h>
 #include <stdint.h>
@@ -60,11 +61,13 @@ double getTime(void)
 	self.lastFrameTime = getTime();
 	color_space = CGColorSpaceCreateDeviceRGB();
 
-	[NSTimer scheduledTimerWithTimeInterval:1.0 / 60.0
-	 target:self
-	 selector:@selector(updateFrame)
-	 userInfo:nil
-	 repeats:YES];
+	// Stopt app streching on resize
+	self.window.contentView.wantsLayer = YES;
+	self.window.contentView.layer.contentsGravity = kCAGravityTopLeft;
+
+	// Allowing redraw during resize
+	CADisplayLink *displayLink = [self.window.contentView displayLinkWithTarget:self selector:@selector(updateFrame)];
+	[displayLink addToRunLoop:[NSRunLoop currentRunLoop] forMode:NSRunLoopCommonModes];
 
 	NSEventMask inputEvents = NSEventMaskKeyDown | NSEventMaskMouseMoved | NSEventMaskScrollWheel
 	                          | NSEventMaskLeftMouseDown | NSEventMaskLeftMouseUp | NSEventMaskLeftMouseDragged
