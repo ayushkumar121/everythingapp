@@ -106,6 +106,7 @@ Env env_from_image(Image image)
 		.width = image.width,
 		.height = image.height,
 		.buffer = (uint8_t*)image.pixels,
+		.scale = 1.0f,
 	};
 }
 
@@ -342,6 +343,51 @@ Image scale_image(Image image, float sx, float sy)
 	return scaled_image;
 }
 
+// Area-averaging resize for good looking downscales; colours are weighted by alpha
+// so transparent pixels don't darken the edges
+Image resize_image(Image image, int width, int height)
+{
+	assert(image.pixels != NULL);
+
+	Image resized = new_image(width, height);
+
+	for (int y = 0; y < height; ++y)
+	{
+		int sy0 = y * image.height / height;
+		int sy1 = (y + 1) * image.height / height;
+		if (sy1 <= sy0) sy1 = sy0 + 1;
+
+		for (int x = 0; x < width; ++x)
+		{
+			int sx0 = x * image.width / width;
+			int sx1 = (x + 1) * image.width / width;
+			if (sx1 <= sx0) sx1 = sx0 + 1;
+
+			uint64_t a = 0, r = 0, g = 0, b = 0;
+			for (int sy = sy0; sy < sy1; ++sy)
+			{
+				for (int sx = sx0; sx < sx1; ++sx)
+				{
+					Color c = image.pixels[sy * image.width + sx];
+					uint32_t ca = COLOR_A(c);
+					a += ca;
+					r += COLOR_R(c) * ca;
+					g += COLOR_G(c) * ca;
+					b += COLOR_B(c) * ca;
+				}
+			}
+
+			uint64_t count = (uint64_t)(sx1 - sx0) * (sy1 - sy0);
+			if (a > 0)
+			{
+				resized.pixels[y * width + x] = COLOR_ARGB((a + count / 2) / count, (r + a / 2) / a, (g + a / 2) / a, (b + a / 2) / a);
+			}
+		}
+	}
+
+	return resized;
+}
+
 Image duplicate_image(Image image)
 {
 	assert(image.pixels != NULL);
@@ -365,6 +411,18 @@ Image new_image(int width, int height)
 	return image;
 }
 
+// Scales the bits under mask to 0..255
+static uint8_t bmp_channel(uint32_t pixel, uint32_t mask)
+{
+	if (mask == 0) return 0;
+
+	int shift = 0;
+	while (((mask >> shift) & 1) == 0) shift++;
+
+	uint32_t max = mask >> shift;
+	return (uint8_t)(((pixel & mask) >> shift) * 255 / max);
+}
+
 void load_image_bmp(Image *image, const char *filename)
 {
 	FILE *file = fopen(filename, "rb");
@@ -386,11 +444,23 @@ void load_image_bmp(Image *image, const char *filename)
 	BMPInfoHeader info_header;
 	fread(&info_header, sizeof(BMPInfoHeader), 1, file);
 
-	if (info_header.compression != 0)
+	// BI_BITFIELDS stores each channel's bit mask, which is how most editors save alpha
+	const uint32_t BMP_RGB = 0;
+	const uint32_t BMP_BITFIELDS = 3;
+	bool has_masks = info_header.compression == BMP_BITFIELDS;
+	if (info_header.compression != BMP_RGB && !(has_masks && (info_header.bits_per_pixel == 16 || info_header.bits_per_pixel == 32)))
 	{
 		fprintf(stderr, "ERROR: Compressed BMP files are not supported\n");
 		fclose(file);
 		return;
+	}
+
+	// Masks follow the 40 byte header; V4/V5 headers include an alpha mask
+	uint32_t masks[4] = {0};
+	if (has_masks)
+	{
+		fseek(file, sizeof(BMPHeader) + sizeof(BMPInfoHeader), SEEK_SET);
+		fread(masks, sizeof(uint32_t), info_header.size >= 56 ? 4 : 3, file);
 	}
 
 	image->width = info_header.width;
@@ -416,7 +486,13 @@ void load_image_bmp(Image *image, const char *filename)
 				fread(&bytes[i], sizeof(uint8_t), 1, file);
 			}
 
-			if (bytes_per_pixel == 1)
+			if (has_masks)
+			{
+				uint32_t pixel = bytes[0] | (bytes[1] << 8) | (bytes[2] << 16) | ((uint32_t)bytes[3] << 24);
+				uint8_t alpha = masks[3] ? bmp_channel(pixel, masks[3]) : 255;
+				color = COLOR_ARGB(alpha, bmp_channel(pixel, masks[0]), bmp_channel(pixel, masks[1]), bmp_channel(pixel, masks[2]));
+			}
+			else if (bytes_per_pixel == 1)
 			{
 				color = COLOR_ARGB(255, bytes[0], bytes[0], bytes[0]);
 			}
@@ -433,6 +509,8 @@ void load_image_bmp(Image *image, const char *filename)
 		}
 		fseek(file, padding, SEEK_CUR);
 	}
+
+	fclose(file);
 }
 
 void load_image(Image *image, const char *filename)

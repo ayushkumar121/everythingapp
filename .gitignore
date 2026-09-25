@@ -15,5 +15,5 @@
 *.exp
 *.lib
 everything
-make
-make.old
+build
+build.old

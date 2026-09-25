@@ -76,6 +76,7 @@ Image image_from_env(Env* env);
 Env env_from_image(Image image);
 
 Image scale_image(Image image, float sx, float sy);
+Image resize_image(Image image, int width, int height);
 Image duplicate_image(Image image);
 
 Image new_image(int width, int height);

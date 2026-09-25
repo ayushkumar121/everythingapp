@@ -41,7 +41,7 @@ bool app_initialised = false;
 bool left_released = false;
 bool right_released = false;
 
-Env env = {0};
+Env env = { .scale = 1.0f };
 AppModule module = {0};
 
 double get_time(void)
@@ -596,7 +596,6 @@ static const struct wl_registry_listener registry_listener = {registry_handler,
 int main(void)
 {
 	last_frame_time = get_time();
-	env.scale = 1.0f;
 
 	// Loading the app module
 	load_module(&module, "./everything.so");

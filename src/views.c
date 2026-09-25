@@ -144,7 +144,7 @@ void draw_scroll_view(View* view, Vec4 rect, Vec4 clip, Env *env)
 		view->content_offset = (Vec2){ .y = scroll_view->scroll };
 	}
 
-	draw_rect(image, rect, scroll_view->background_color, &clip);
+	draw_rounded_rect(image, rect, scroll_view->background_color, scroll_view->border_radius, &clip);
 	if (max_scroll <= 0.0f) return;
 
 	draw_rect(image, scroll_bar, scroll_view->track_color, &clip);
@@ -173,6 +173,7 @@ ScrollView* new_scroll_view(ScrollViewArgs* args)
 	view->base.draw = draw_scroll_view;
 	view->axis = args->axis;
 	view->bar_thickness = args->bar_thickness > 0 ? args->bar_thickness : SCROLL_BAR_DEFAULT_THICKNESS;
+	view->border_radius = args->border_radius;
 	view->background_color = args->background_color;
 	view->track_color = args->track_color;
 	view->thumb_color = args->thumb_color;
@@ -260,5 +261,123 @@ PanelView* new_panel_view(PanelViewArgs* args)
 	view->background_color = args->background_color;
 	view->active_color = args->active_color;
 	view->border_radius = args->border_radius;
+	return view;
+}
+
+// Tracks press and release, fires on_click, and returns the colour for the current state
+static Color update_button(ButtonView* button, Vec4 clip, Env *env)
+{
+	const bool is_hovered = inside_rect(mouse_position(env), clip);
+	const bool pressed_now = env->mouse_left_down && !button->mouse_was_down;
+	button->mouse_was_down = env->mouse_left_down;
+
+	// A click is a press and a release both inside the button
+	if (pressed_now && is_hovered)
+	{
+		button->is_pressed = true;
+	}
+
+	if (!env->mouse_left_down)
+	{
+		const bool clicked = button->is_pressed && is_hovered;
+		button->is_pressed = false;
+
+		if (clicked && button->on_click != NULL)
+		{
+			button->on_click((View*)button, button->user_data);
+		}
+	}
+
+	if (button->is_pressed && is_hovered) return button->pressed_color;
+	if (is_hovered) return button->hover_color;
+	return button->background_color;
+}
+
+void draw_button_view(View* view, Vec4 rect, Vec4 clip, Env *env)
+{
+	ButtonView* button = (ButtonView*) view;
+	Image image = image_from_env(env);
+
+	Color color = update_button(button, clip, env);
+	draw_rounded_rect(image, rect, color, button->border_radius, &clip);
+
+	if (button->text != NULL && button->font.data != NULL)
+	{
+		Vec2 extent = measure_text(button->font, button->text, button->text_size);
+		Vec2 position = {
+			.x = (int)(rect.x + (rect.w - extent.x) / 2),
+			.y = (int)(rect.y + (rect.h - extent.y) / 2),
+		};
+		draw_text(image, button->font, button->text, button->text_size, position, button->text_color, &clip);
+	}
+}
+
+ButtonView* new_button_view(ButtonViewArgs* args)
+{
+	assert(args != NULL);
+	ButtonView* view = malloc(sizeof(ButtonView));
+	memset(view, 0, sizeof(ButtonView));
+	new_view((View*)view, (ViewArgs*)args);
+	view->base.draw = draw_button_view;
+	view->font = args->font;
+	view->text = args->text;
+	view->text_size = args->text_size;
+	if (view->text_size == 0 && args->font.data != NULL)
+	{
+		view->text_size = font_size(args->font);
+	}
+	view->text_color = args->text_color;
+	view->background_color = args->background_color;
+	view->hover_color = args->hover_color ? args->hover_color : args->background_color;
+	view->pressed_color = args->pressed_color ? args->pressed_color : view->hover_color;
+	view->border_radius = args->border_radius;
+	view->on_click = args->on_click;
+	view->user_data = args->user_data;
+	return view;
+}
+
+void draw_image_button_view(View* view, Vec4 rect, Vec4 clip, Env *env)
+{
+	ImageButtonView* button = (ImageButtonView*) view;
+	Image image = image_from_env(env);
+
+	Color color = update_button(&button->base, clip, env);
+	draw_rounded_rect(image, rect, color, button->base.border_radius, &clip);
+
+	Image icon = button->image;
+	if (icon.pixels == NULL || icon.width <= 0 || icon.height <= 0) return;
+
+	// Native size keeps the image sharp, it is only scaled down when it doesn't fit
+	float available_w = rect.w - 2 * button->image_padding;
+	float available_h = rect.h - 2 * button->image_padding;
+	float fit = fminf(1.0f, fminf(available_w / icon.width, available_h / icon.height));
+	if (fit <= 0.0f) return;
+
+	float w = floorf(icon.width * fit);
+	float h = floorf(icon.height * fit);
+	Vec4 destination = {
+		.x = floorf(rect.x + (rect.w - w) / 2),
+		.y = floorf(rect.y + (rect.h - h) / 2),
+		.w = w,
+		.h = h,
+	};
+	draw_image(image, icon, destination, NULL, &clip);
+}
+
+ImageButtonView* new_image_button_view(ImageButtonViewArgs* args)
+{
+	assert(args != NULL);
+	ImageButtonView* view = malloc(sizeof(ImageButtonView));
+	memset(view, 0, sizeof(ImageButtonView));
+	new_view((View*)view, (ViewArgs*)args);
+	view->base.base.draw = draw_image_button_view;
+	view->base.background_color = args->background_color;
+	view->base.hover_color = args->hover_color ? args->hover_color : args->background_color;
+	view->base.pressed_color = args->pressed_color ? args->pressed_color : view->base.hover_color;
+	view->base.border_radius = args->border_radius;
+	view->base.on_click = args->on_click;
+	view->base.user_data = args->user_data;
+	view->image = args->image;
+	view->image_padding = args->image_padding;
 	return view;
 }

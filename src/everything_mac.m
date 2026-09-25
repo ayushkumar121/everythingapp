@@ -9,7 +9,7 @@
 #include "config.h"
 #include "hotreload.h"
 
-Env env = {0};
+Env env = { .scale = 1.0f };
 AppModule module = {0};
 bool app_initialised = false;
 CGColorSpaceRef color_space = NULL;

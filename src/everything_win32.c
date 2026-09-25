@@ -7,7 +7,7 @@
 #include "env.h"
 #include "hotreload.h"
 
-Env env = {0};
+Env env = { .scale = 1.0f };
 AppModule module = {0};
 bool appInitialised = false;
 double lastFrameTime = 0.0;
@@ -34,8 +34,6 @@ int WINAPI WinMain(
 {
 	(void)hPrevInstance;
 	(void)lpCmdLine;
-
-	env.scale = 1.0f;
 
 	load_module(&module, "everything.dll");
 	module.app_load();

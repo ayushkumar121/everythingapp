@@ -40,6 +40,7 @@ typedef struct
 	Axis axis;
 	bool is_dragging;
 	float bar_thickness;
+	float border_radius;
 	Color background_color;
 	Color track_color;
 	Color thumb_color;
@@ -50,6 +51,7 @@ typedef struct
 	ViewArgs base;
 	Axis axis;
 	float bar_thickness;
+	float border_radius;
 	Color background_color;
 	Color track_color;
 	Color thumb_color;
@@ -109,3 +111,63 @@ typedef struct
 } PanelViewArgs;
 
 PanelView* new_panel_view(PanelViewArgs* args);
+
+// Runs while the tree is being drawn, so it must not destroy views
+typedef void (*ClickFn)(View* view, void* user_data);
+
+typedef struct
+{
+	View base;
+	Font font;
+	const char *text;
+	int text_size;
+	Color text_color;
+	Color background_color;
+	Color hover_color;
+	Color pressed_color;
+	float border_radius;
+	ClickFn on_click;
+	void* user_data;
+	bool is_pressed;
+	bool mouse_was_down;
+} ButtonView;
+
+typedef struct
+{
+	ViewArgs base;
+	Font font;
+	const char *text;
+	int text_size; // 0 uses the font's native size
+	Color text_color;
+	Color background_color;
+	Color hover_color;
+	Color pressed_color;
+	float border_radius;
+	ClickFn on_click;
+	void* user_data;
+} ButtonViewArgs;
+
+ButtonView* new_button_view(ButtonViewArgs* args);
+
+// A button that shows an image instead of a label. The image is borrowed, not freed by the view.
+typedef struct
+{
+	ButtonView base;
+	Image image;
+	float image_padding;
+} ImageButtonView;
+
+typedef struct
+{
+	ViewArgs base;
+	Image image;
+	float image_padding;
+	Color background_color;
+	Color hover_color;
+	Color pressed_color;
+	float border_radius;
+	ClickFn on_click;
+	void* user_data;
+} ImageButtonViewArgs;
+
+ImageButtonView* new_image_button_view(ImageButtonViewArgs* args);
