@@ -19,7 +19,6 @@ ifndef PLATFORM
 endif
 
 ifeq ($(PLATFORM),PLATFORM_WIN32)
-    # cl.exe from a Visual Studio developer prompt, with GNU make and a POSIX shell (Git Bash, MSYS2)
     LIB = everything.dll
     EXE = everything.exe
     EXE_SOURCES = src/everything_win32.c src/hotreload.c
