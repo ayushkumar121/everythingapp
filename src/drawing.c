@@ -388,6 +388,17 @@ Image resize_image(Image image, int width, int height)
 	return resized;
 }
 
+// Recolours every pixel and keeps its alpha, for single colour icons
+void tint_image(Image image, Color color)
+{
+	assert(image.pixels != NULL);
+
+	for (int i = 0; i < image.width * image.height; ++i)
+	{
+		image.pixels[i] = (image.pixels[i] & 0xFF000000u) | (color & 0x00FFFFFFu);
+	}
+}
+
 Image duplicate_image(Image image)
 {
 	assert(image.pixels != NULL);

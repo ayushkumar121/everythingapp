@@ -33,32 +33,29 @@
 #define TOGGLE_WIDTH 30
 #define TOGGLE_HEIGHT 30
 #define TOGGLE_ICON_SIZE 20
+#define SECTION_ICON_SIZE 20
+#define SECTION_ICON_GAP 12
 
 #define SIDE_BAR_WIDTH(env) (env->width/3)
 
 typedef struct
 {
-	const char *title;
-	const char *body;
+	char *path;
+	Image source;
+	Image image; // Resized and tinted for the current display scale
+} Icon;
+
+// Strings are owned by the state so they survive a hot reload of this library
+typedef struct
+{
+	char *title;
+	char *body;
+	int icon; // Index into AppState.icons, -1 for none
 } Section;
 
-static const Section sections[] =
-{
-	{"Todays", "Nothing scheduled yet.\n\nPlan the day by adding tasks,\nevents and habits to check off."},
-	{"Tasks", "Your to-do list.\n\nCapture anything you need to do\nand tick it off when it's done."},
-	{"Calendar", "Upcoming events and deadlines.\n\nSee your week at a glance."},
-	{"Notes", "Quick notes and ideas.\n\nWrite things down before\nyou forget them."},
-	{"Habits", "Daily habits and streaks.\n\nTrack what you want to do\nevery day."},
-	{"Goals", "Long term goals.\n\nBreak big goals into small steps\nand follow your progress."},
-	{"Journal", "A private daily journal.\n\nReflect on how the day went."},
-	{"Reading", "Books to read and books read.\n\nKeep a list and short reviews."},
-	{"Fitness", "Workouts and activity.\n\nLog exercise and see trends\nover time."},
-	{"Finance", "Budget and spending.\n\nTrack where your money goes\neach month."},
-	{"Contacts", "People you keep in touch with.\n\nBirthdays, notes and\nwhen you last spoke."},
-	{"Settings", "Preferences for the app.\n\nTheme, data and shortcuts."},
-};
-
-#define SECTION_COUNT ((int)countof(sections))
+typedef ARRAY(Icon) Icons;
+typedef ARRAY(Section) Sections;
+typedef ARRAY(PanelView*) PanelViews;
 
 typedef struct
 {
@@ -70,7 +67,9 @@ typedef struct
 	int height;
 	float scale;
 	ScrollView* sidebar;
-	PanelView* items[countof(sections)];
+	Icons icons;
+	Sections sections;
+	PanelViews items;
 	PanelView* detail;
 	TextView* detail_title;
 	TextView* detail_body;
@@ -83,6 +82,8 @@ typedef struct
 
 AppState *state = NULL;
 
+static void add_section(const char *title, const char *body, const char *icon_path);
+static void prepare_icons(float scale);
 static void select_section(int index);
 static void toggle_sidebar(View* view, void* user_data);
 
@@ -96,6 +97,19 @@ export void app_load(void)
 	load_font(&state->font_small, "assets/ter-u18n.bdf");
 	load_font(&state->font_bold, "assets/ter-u32b.bdf");
 	load_image(&state->sidebar_icon_source, "assets/sidebar.bmp");
+
+	add_section("Todays", "Nothing scheduled yet.\n\nPlan the day by adding tasks,\nevents and habits to check off.", "assets/file.bmp");
+	add_section("Tasks", "Your to-do list.\n\nCapture anything you need to do\nand tick it off when it's done.", "assets/folder.bmp");
+	add_section("Calendar", "Upcoming events and deadlines.\n\nSee your week at a glance.", "assets/file.bmp");
+	add_section("Notes", "Quick notes and ideas.\n\nWrite things down before\nyou forget them.", "assets/folder.bmp");
+	add_section("Habits", "Daily habits and streaks.\n\nTrack what you want to do\nevery day.", "assets/file.bmp");
+	add_section("Goals", "Long term goals.\n\nBreak big goals into small steps\nand follow your progress.", "assets/file.bmp");
+	add_section("Journal", "A private daily journal.\n\nReflect on how the day went.", "assets/folder.bmp");
+	add_section("Reading", "Books to read and books read.\n\nKeep a list and short reviews.", "assets/folder.bmp");
+	add_section("Fitness", "Workouts and activity.\n\nLog exercise and see trends\nover time.", "assets/file.bmp");
+	add_section("Finance", "Budget and spending.\n\nTrack where your money goes\neach month.", "assets/folder.bmp");
+	add_section("Contacts", "People you keep in touch with.\n\nBirthdays, notes and\nwhen you last spoke.", "assets/folder.bmp");
+	add_section("Settings", "Preferences for the app.\n\nTheme, data and shortcuts.", "assets/file.bmp");
 
 	state->sidebar_opened = true;
 }
@@ -115,6 +129,10 @@ export void app_init(Env* env)
 	{
 		destroy_view(state->view);
 	}
+	state->items.length = 0;
+
+	// After the old views are gone, since they borrow these images
+	prepare_icons(env->scale);
 
 	RectView* root = new_rect_view(&(RectViewArgs){
 		.base = (ViewArgs){
@@ -169,8 +187,10 @@ export void app_init(Env* env)
 		.thumb_color = THEME_SCROLL_THUMB,
 	});
 
-	for (int i = 0; i < SECTION_COUNT; i++)
+	for (size_t i = 0; i < state->sections.length; i++)
 	{
+		Section* section = &state->sections.items[i];
+
 		PanelView* item = new_panel_view(&(PanelViewArgs){
 			.base = (ViewArgs){
 				.rect = (Vec4){
@@ -183,19 +203,34 @@ export void app_init(Env* env)
 			.border_radius = 8.0f * env->scale,
 		});
 
+		// [icon] [text]
+		float icon_size = SECTION_ICON_SIZE * env->scale;
+		float label_x = 16 * env->scale;
+		if (section->icon >= 0)
+		{
+			ImageView* icon = new_image_view(&(ImageViewArgs){
+				.base = (ViewArgs){
+					.rect = (Vec4){ .x = label_x, .y = (int)(ITEM_HEIGHT * env->scale - icon_size) / 2, .w = icon_size, .h = icon_size },
+				},
+				.image = state->icons.items[section->icon].image,
+			});
+			array_append(&item->base.children, (View*)icon);
+		}
+		label_x += icon_size + SECTION_ICON_GAP * env->scale;
+
 		TextView* label = new_text_view(&(TextViewArgs){
 			.base = (ViewArgs){
-				.rect = (Vec4){ .x = 16 * env->scale, .y = (int)(ITEM_HEIGHT * env->scale - body_size) / 2, .w = sidebar_width, .h = body_size },
+				.rect = (Vec4){ .x = label_x, .y = (int)(ITEM_HEIGHT * env->scale - body_size) / 2, .w = sidebar_width, .h = body_size },
 			},
 			.font = body_font,
-			.text = sections[i].title,
+			.text = section->title,
 			.text_color = THEME_TEXT,
 			.text_size = body_size,
 		});
 
 		array_append(&item->base.children, (View*)label);
 		array_append(&sidebar->base.children, (View*)item);
-		state->items[i] = item;
+		array_append(&state->items, item);
 	}
 
 	PanelView* detail = new_panel_view(&(PanelViewArgs){
@@ -267,9 +302,9 @@ export void app_update(Env *env)
 		Vec2 mouse = { .x = env->mouse_x, .y = env->mouse_y };
 		if (clicked && inside_rect(mouse, state->sidebar->base.rect))
 		{
-			for (int i = 0; i < SECTION_COUNT; i++)
+			for (size_t i = 0; i < state->items.length; i++)
 			{
-				View* item = &state->items[i]->base;
+				View* item = &state->items.items[i]->base;
 				if (inside_rect(mouse, v4_add_v2(item->rect, item->offset)))
 				{
 					select_section(i);
@@ -316,19 +351,70 @@ export void app_post_reload(AppStateHandle handle)
 
 // Private
 
-static void select_section(int index)
+static char* copy_string(const char *text)
 {
-	state->selected = index;
+	size_t length = strlen(text) + 1;
+	char *copy = malloc(length);
+	memcpy(copy, text, length);
+	return copy;
+}
 
-	for (int i = 0; i < SECTION_COUNT; i++)
+// Icons are shared by path so each file is only loaded once
+static int load_icon(const char *path)
+{
+	for (size_t i = 0; i < state->icons.length; i++)
 	{
-		bool selected = i == index;
-		state->items[i]->background_color = selected ? THEME_ITEM_SELECTED : THEME_ITEM;
-		state->items[i]->active_color = selected ? THEME_ITEM_SELECTED : THEME_ITEM_HOVER;
+		if (strcmp(state->icons.items[i].path, path) == 0) return (int)i;
 	}
 
-	state->detail_title->text = sections[index].title;
-	state->detail_body->text = sections[index].body;
+	Icon icon = { .path = copy_string(path) };
+	load_image(&icon.source, path);
+	if (icon.source.pixels == NULL)
+	{
+		free(icon.path);
+		return -1;
+	}
+
+	array_append(&state->icons, icon);
+	return (int)state->icons.length - 1;
+}
+
+static void add_section(const char *title, const char *body, const char *icon_path)
+{
+	Section section = {
+		.title = copy_string(title),
+		.body = copy_string(body),
+		.icon = icon_path != NULL ? load_icon(icon_path) : -1,
+	};
+	array_append(&state->sections, section);
+}
+
+static void prepare_icons(float scale)
+{
+	int size = SECTION_ICON_SIZE * scale;
+	for (size_t i = 0; i < state->icons.length; i++)
+	{
+		Icon *icon = &state->icons.items[i];
+		free_image(&icon->image);
+		icon->image = resize_image(icon->source, size, size);
+		tint_image(icon->image, THEME_TEXT);
+	}
+}
+
+static void select_section(int index)
+{
+	if (index < 0 || (size_t)index >= state->sections.length) return;
+	state->selected = index;
+
+	for (size_t i = 0; i < state->items.length; i++)
+	{
+		bool selected = (int)i == index;
+		state->items.items[i]->background_color = selected ? THEME_ITEM_SELECTED : THEME_ITEM;
+		state->items.items[i]->active_color = selected ? THEME_ITEM_SELECTED : THEME_ITEM_HOVER;
+	}
+
+	state->detail_title->text = state->sections.items[index].title;
+	state->detail_body->text = state->sections.items[index].body;
 }
 
 static void toggle_sidebar(View* view, void* user_data)

@@ -336,6 +336,27 @@ ButtonView* new_button_view(ButtonViewArgs* args)
 	return view;
 }
 
+// Centres the image in rect at native size so it stays sharp, scaling down only when it doesn't fit
+static void draw_image_fitted(Image target, Image image, Vec4 rect, float padding, Vec4 clip)
+{
+	if (image.pixels == NULL || image.width <= 0 || image.height <= 0) return;
+
+	float available_w = rect.w - 2 * padding;
+	float available_h = rect.h - 2 * padding;
+	float fit = fminf(1.0f, fminf(available_w / image.width, available_h / image.height));
+	if (fit <= 0.0f) return;
+
+	float w = floorf(image.width * fit);
+	float h = floorf(image.height * fit);
+	Vec4 destination = {
+		.x = floorf(rect.x + (rect.w - w) / 2),
+		.y = floorf(rect.y + (rect.h - h) / 2),
+		.w = w,
+		.h = h,
+	};
+	draw_image(target, image, destination, NULL, &clip);
+}
+
 void draw_image_button_view(View* view, Vec4 rect, Vec4 clip, Env *env)
 {
 	ImageButtonView* button = (ImageButtonView*) view;
@@ -343,25 +364,7 @@ void draw_image_button_view(View* view, Vec4 rect, Vec4 clip, Env *env)
 
 	Color color = update_button(&button->base, clip, env);
 	draw_rounded_rect(image, rect, color, button->base.border_radius, &clip);
-
-	Image icon = button->image;
-	if (icon.pixels == NULL || icon.width <= 0 || icon.height <= 0) return;
-
-	// Native size keeps the image sharp, it is only scaled down when it doesn't fit
-	float available_w = rect.w - 2 * button->image_padding;
-	float available_h = rect.h - 2 * button->image_padding;
-	float fit = fminf(1.0f, fminf(available_w / icon.width, available_h / icon.height));
-	if (fit <= 0.0f) return;
-
-	float w = floorf(icon.width * fit);
-	float h = floorf(icon.height * fit);
-	Vec4 destination = {
-		.x = floorf(rect.x + (rect.w - w) / 2),
-		.y = floorf(rect.y + (rect.h - h) / 2),
-		.w = w,
-		.h = h,
-	};
-	draw_image(image, icon, destination, NULL, &clip);
+	draw_image_fitted(image, button->image, rect, button->image_padding, clip);
 }
 
 ImageButtonView* new_image_button_view(ImageButtonViewArgs* args)
@@ -379,5 +382,22 @@ ImageButtonView* new_image_button_view(ImageButtonViewArgs* args)
 	view->base.user_data = args->user_data;
 	view->image = args->image;
 	view->image_padding = args->image_padding;
+	return view;
+}
+
+void draw_image_view(View* view, Vec4 rect, Vec4 clip, Env *env)
+{
+	ImageView* image_view = (ImageView*) view;
+	draw_image_fitted(image_from_env(env), image_view->image, rect, 0.0f, clip);
+}
+
+ImageView* new_image_view(ImageViewArgs* args)
+{
+	assert(args != NULL);
+	ImageView* view = malloc(sizeof(ImageView));
+	memset(view, 0, sizeof(ImageView));
+	new_view((View*)view, (ViewArgs*)args);
+	view->base.draw = draw_image_view;
+	view->image = args->image;
 	return view;
 }

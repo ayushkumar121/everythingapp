@@ -171,3 +171,18 @@ typedef struct
 } ImageButtonViewArgs;
 
 ImageButtonView* new_image_button_view(ImageButtonViewArgs* args);
+
+// Shows an image centred in its rect. The image is borrowed, not freed by the view.
+typedef struct
+{
+	View base;
+	Image image;
+} ImageView;
+
+typedef struct
+{
+	ViewArgs base;
+	Image image;
+} ImageViewArgs;
+
+ImageView* new_image_view(ImageViewArgs* args);
